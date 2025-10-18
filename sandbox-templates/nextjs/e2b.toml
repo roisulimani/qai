@@ -1,0 +1,17 @@
+# This is a config for E2B sandbox template.
+# You can use template ID (n1vodwgwtr6ox5f1brp6) or template name (qai-nextjs-t2) to create a sandbox:
+
+# Python SDK
+# from e2b import Sandbox, AsyncSandbox
+# sandbox = Sandbox.create("qai-nextjs-t2") # Sync sandbox
+# sandbox = await AsyncSandbox.create("qai-nextjs-t2") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'e2b'
+# const sandbox = await Sandbox.create('qai-nextjs-t2')
+
+team_id = "50cd980f-383a-4fd7-86e1-88a95742d72b"
+start_cmd = "/compile_page.sh"
+dockerfile = "e2b.Dockerfile"
+template_name = "qai-nextjs-t2"
+template_id = "n1vodwgwtr6ox5f1brp6"
