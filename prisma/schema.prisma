@@ -5,6 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 // Run "npx prisma migrate dev" for changes migration
+// Run "npx prisma migrate reset" to reset the database - ONLY USE IN DEVELOPMENT
+// Run "npx prisma studio" to view the database
+
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -13,6 +16,15 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
 }
 
 enum MessageRole {
@@ -32,7 +44,11 @@ model Message {
   type      MessageType
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-  fragment  Fragment?
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  fragment Fragment?
 }
 
 model Fragment {
