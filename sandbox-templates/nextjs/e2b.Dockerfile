@@ -11,10 +11,10 @@ RUN chmod +x /compile_page.sh
 WORKDIR /home/user/nextjs-app
 
 #TODO: Check the latest version of create-next-app and shadcn
-RUN npx --yes create-next-app@15.3.3 . --yes
+RUN npx --yes create-next-app@15.1.6 . --yes
 
-RUN npx --yes shadcn-ui@latest init --yes -b neutral --force
-RUN npx --yes shadcn-ui@latest add --all --yes
+RUN npx --yes shadcn@3.2.1 init --yes -b neutral --force
+RUN npx --yes shadcn@3.2.1 add --all --yes
 
 # Move the Nextjs app to the home directory and remove the nextjs-app directory
 RUN mv /home/user/nextjs-app/* /home/user/ && rm -rf /home/user/nextjs-app
