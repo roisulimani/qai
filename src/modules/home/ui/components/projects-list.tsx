@@ -13,7 +13,7 @@ export const ProjectsList = () => {
     const { data: projects } = useQuery(trpc.projects.getMany.queryOptions());
 
     return (
-        <div className="w-full bg-white dark:bg-sidebar rounded-xl border p-8 flex flex-col gap-y-6 sm:gap-y-4">
+        <div className="w-full rounded-2xl border border-white/20 dark:border-white/10 p-8 flex flex-col gap-y-6 sm:gap-y-4 bg-white/60 dark:bg-neutral-900/60 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/50 shadow-lg shadow-black/5">
             <h2 className="text-2xl font-semibold">
                 Your Projects
             </h2>
