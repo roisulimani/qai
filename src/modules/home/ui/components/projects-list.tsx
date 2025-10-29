@@ -7,19 +7,15 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@clerk/nextjs";
 
 export const ProjectsList = () => {
     const trpc = useTRPC();
-    const { user } = useUser();
     const { data: projects } = useQuery(trpc.projects.getMany.queryOptions());
-
-    if (!user) return null;
 
     return (
         <div className="w-full bg-white dark:bg-sidebar rounded-xl border p-8 flex flex-col gap-y-6 sm:gap-y-4">
             <h2 className="text-2xl font-semibold">
-                {user?.firstName}'s Projects
+                Your Projects
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 {projects?.length === 0 && (
