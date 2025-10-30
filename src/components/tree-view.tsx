@@ -16,22 +16,25 @@ import {
     SidebarProvider,
     SidebarRail,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 import { ChevronRightIcon, FileIcon, FolderIcon } from "lucide-react";
 
 interface TreeViewProps {
     treeData: TreeItem[];
     value: string | null;
     onSelect?: (value: string) => void;
+    className?: string;
+    contentClassName?: string;
 }
 
-export const TreeView = ({ treeData, value, onSelect }: TreeViewProps) => {
+export const TreeView = ({ treeData, value, onSelect, className, contentClassName }: TreeViewProps) => {
     return (
         <SidebarProvider>
-            <Sidebar collapsible="none" className="w-full">
-                <SidebarContent>
-                    <SidebarGroup>
+            <Sidebar collapsible="none" className={cn("w-full bg-transparent dark:bg-transparent", className)}>
+                <SidebarContent className={cn("px-0 py-2", contentClassName)}>
+                    <SidebarGroup className="p-0">
                         <SidebarGroupContent>
-                            <SidebarMenu>
+                            <SidebarMenu className="gap-1">
                                 {treeData.map((item, index) => (
                                     <Tree key={index} item={item} selectedValue={value} onSelect={onSelect} parentPath="" />
                                 ))}
@@ -63,7 +66,10 @@ const Tree = ({ item, selectedValue, onSelect, parentPath }: TreeProps) => {
         return (
             <SidebarMenuButton
                 isActive={isSelected}
-                className="data-[active=true]:bg-transparent"
+                className={cn(
+                    "rounded-xl border border-transparent bg-white/40 text-foreground/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white/60 dark:bg-neutral-900/40 dark:text-neutral-100",
+                    isSelected && "border-white/50 bg-white/80 text-foreground dark:border-white/20 dark:bg-neutral-800/80",
+                )}
                 onClick={() => onSelect?.(currentPath)}
             >
                 <FileIcon />
@@ -81,7 +87,7 @@ const Tree = ({ item, selectedValue, onSelect, parentPath }: TreeProps) => {
                 className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
             >
                 <CollapsibleTrigger asChild>
-                    <SidebarMenuButton>
+                    <SidebarMenuButton className="rounded-xl border border-transparent bg-white/30 text-foreground/80 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white/60 dark:bg-neutral-900/40 dark:text-neutral-100">
                         <ChevronRightIcon className="transition-transform"/>
                         <FolderIcon />
                         <span className="truncate">

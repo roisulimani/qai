@@ -4,18 +4,18 @@ import { useState, useMemo, useCallback, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
 import { CodeView } from "@/components/code-view";
-import { 
-    ResizableHandle, 
-    ResizablePanel, 
-    ResizablePanelGroup 
+import {
+    ResizableHandle,
+    ResizablePanel,
+    ResizablePanelGroup
 } from "@/components/ui/resizable";
-import { 
-    Breadcrumb, 
-    BreadcrumbItem, 
-    BreadcrumbSeparator, 
-    BreadcrumbList, 
-    BreadcrumbPage, 
-    BreadcrumbEllipsis 
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbSeparator,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbEllipsis
 } from "@/components/ui/breadcrumb";
 import { convertFilesToTreeItems } from "@/lib/utils";
 import { TreeView } from "@/components/tree-view";
@@ -105,7 +105,7 @@ export const FileExplorer = ({ files }: FileExplorerProps) => {
     });
 
     const treeData = useMemo(() => {
-        return convertFilesToTreeItems(files);    
+        return convertFilesToTreeItems(files);
     }, [files]);
 
     const handleSelectFile = useCallback((file: string) => {
@@ -126,25 +126,29 @@ export const FileExplorer = ({ files }: FileExplorerProps) => {
     }, [selectedFile, files]);
 
     return (
-        <ResizablePanelGroup direction="horizontal">
-            <ResizablePanel defaultSize={30} minSize={20} className="bg-sidebar">
-                <TreeView 
-                    treeData={treeData}
-                    value={selectedFile}
-                    onSelect={handleSelectFile}
-                />
+        <ResizablePanelGroup direction="horizontal" className="flex-1 gap-3 overflow-hidden">
+            <ResizablePanel defaultSize={30} minSize={20} className="min-w-0 p-1">
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/30 bg-white/75 p-3 shadow-inner backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/60">
+                    <TreeView
+                        treeData={treeData}
+                        value={selectedFile}
+                        onSelect={handleSelectFile}
+                        className="h-full"
+                        contentClassName="overflow-y-auto"
+                    />
+                </div>
             </ResizablePanel>
-            <ResizableHandle className="hover:bg-primary transition-colors" />
-            <ResizablePanel defaultSize={70} minSize={60}>
+            <ResizableHandle className="mx-1 rounded-full bg-white/40 transition-colors hover:bg-primary/40 dark:bg-white/10 dark:hover:bg-primary/40" />
+            <ResizablePanel defaultSize={70} minSize={60} className="min-w-0 p-1">
                 {selectedFile && files[selectedFile] ? (
-                    <div className="h-full w-full flex flex-col">
-                        <div className="border-b bg-sidebar px-4 py-2 flex justify-between items-center gap-x-2">
+                    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white/30 bg-white/80 shadow-inner backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/65">
+                        <div className="flex items-center justify-between gap-2 border-b border-white/30 bg-white/70 px-4 py-2 text-sm font-medium dark:border-white/10 dark:bg-neutral-900/60">
                             <FileBreadcrumb filePath={selectedFile} />
                             <Hint description="Copy to clipboard" side="bottom">
                                 <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="icon"
-                                    className="ml-auto"
+                                    className="ml-auto size-9 rounded-full border border-white/40 bg-white/70 text-muted-foreground shadow-sm transition hover:-translate-y-0.5 hover:bg-white/90 disabled:opacity-60 dark:border-white/10 dark:bg-neutral-800/70 dark:text-neutral-100"
                                     onClick={handleCopyToClipboard}
                                     disabled={copied}
                                 >
@@ -153,19 +157,19 @@ export const FileExplorer = ({ files }: FileExplorerProps) => {
                             </Hint>
                         </div>
                         <div className="flex-1 overflow-auto">
-                            <CodeView 
+                            <CodeView
                                 code={files[selectedFile]}
                                 language={getLanguageFromExtension(selectedFile)}
                             />
                         </div>
                     </div>
                 ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <p>Select a file to view the code</p>
+                    <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/40 bg-white/40 px-6 text-center text-muted-foreground backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/40">
+                        <p className="text-sm font-medium">Select a file to view the code</p>
                     </div>
                 )}
             </ResizablePanel>
         </ResizablePanelGroup>
     )
-    
+
 }

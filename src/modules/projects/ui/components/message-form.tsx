@@ -65,12 +65,12 @@ export const MessageForm = ({ projectId }: Props) => {
     const isButtonDisabled = isPending || !form.formState.isValid;
     
     return (
-        < Form {...form}>
-            <form 
+        <Form {...form}>
+            <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className={cn(
-                    "relative border p-4 pt-1 rounded-xl bg-sidebar dark:bg-sidebar transition-all",
-                    isFocused && "shadow-xs",
+                    "relative rounded-2xl border border-white/40 bg-white/80 px-4 pb-4 pt-5 shadow-lg shadow-black/5 backdrop-blur-2xl transition-all dark:border-white/10 dark:bg-neutral-900/60",
+                    isFocused && "ring-2 ring-primary/40",
                     showUsage && "rounded-t-none",
                 )}
             >
@@ -78,37 +78,36 @@ export const MessageForm = ({ projectId }: Props) => {
                     control={form.control}
                     name="message"
                     render={({ field }) => (
-                        <TextareaAutosize 
-                        {...field}
-                        disabled={isPending}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        minRows={2}
-                        maxRows={8}
-                        className="pt-4 resize-none border-none w-full outline-none bg-transparent"
-                        placeholder="What do you want to build?"
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
-                                e.preventDefault();
-                                form.handleSubmit(onSubmit)(e);
-                            }
-                        }}
+                        <TextareaAutosize
+                            {...field}
+                            disabled={isPending}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                            minRows={2}
+                            maxRows={8}
+                            className="w-full resize-none border-none bg-transparent pt-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/70"
+                            placeholder="Describe what you want QAI to build for you..."
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                                    e.preventDefault();
+                                    form.handleSubmit(onSubmit)(e);
+                                }
+                            }}
                         />
                     )}
                 />
-                <div className="flex gap-x-2 items-end justify-between pt-2">
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center
-                        gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <div className="flex items-end justify-between gap-2 pt-4">
+                    <div className="text-[11px] text-muted-foreground">
+                        <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-full border border-white/40 bg-white/60 px-2 font-mono text-[10px] font-medium text-muted-foreground shadow-sm dark:border-white/10 dark:bg-neutral-800/70">
                             <span>&#8984;</span>Enter
                         </kbd>
-                        &nbsp;to submit
+                        <span className="ml-2">Press to submit</span>
                     </div>
                     <Button
                         type="submit"
                         disabled={isButtonDisabled}
                         className={cn(
-                            "size-8 rounded-full",
+                            "size-9 rounded-full bg-gradient-to-br from-primary/90 via-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/40 transition-all hover:from-primary hover:to-primary",
                             isButtonDisabled && "opacity-50 cursor-not-allowed",
                         )}
                     >

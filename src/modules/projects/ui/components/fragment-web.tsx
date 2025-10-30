@@ -26,47 +26,49 @@ export const FragmentWeb = ({ data }: Props) => {
     };
 
     return (
-        <div className="flex flex-col w-full h-full">
-            <div className="p-2 border-b bg-sidebar flex items-center gap-x-2">
+        <div className="flex h-full w-full flex-col overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-white/30 bg-white/70 px-4 py-3 text-sm font-medium shadow-inner backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/60">
                 <Hint description="Refresh" side="bottom" align="start">
                     <Button
-                        variant="outline"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={onRefreshClick}
+                        className="size-9 rounded-full border border-white/40 bg-white/70 text-muted-foreground shadow-sm transition hover:-translate-y-0.5 hover:bg-white/90 dark:border-white/10 dark:bg-neutral-800/70 dark:text-neutral-100"
                     >
-                        <RefreshCcwIcon />
+                        <RefreshCcwIcon className="size-4" />
                     </Button>
                 </Hint>
                 <Hint description="Copy URL" side="bottom" align="start">
-                    <Button 
-                        variant="outline"
+                    <Button
+                        variant="ghost"
                         size="sm"
                         onClick={handleCopyClick}
                         disabled={!data.sandboxUrl || copied}
-                        className="flex-1 justify-start text-start font-normal"
+                        className="flex-1 justify-start truncate rounded-full border border-white/40 bg-white/70 px-4 py-2 text-start font-normal text-muted-foreground shadow-sm transition hover:-translate-y-0.5 hover:bg-white/90 disabled:opacity-60 dark:border-white/10 dark:bg-neutral-800/70 dark:text-neutral-100"
                     >
                         <span className="truncate">
-                            {data.sandboxUrl}
+                            {data.sandboxUrl || "Preview not available"}
                         </span>
                     </Button>
                 </Hint>
                 <Hint description="Open in new tab" side="bottom" align="start">
                     <Button
-                        size="sm"
+                        size="icon"
                         disabled={!data.sandboxUrl}
-                        variant={"outline"}
+                        variant="ghost"
                         onClick={() => {
                             if (!data.sandboxUrl) return;
                             window.open(data.sandboxUrl, "_blank");
                         }}
+                        className="size-9 rounded-full border border-white/40 bg-white/70 text-muted-foreground shadow-sm transition hover:-translate-y-0.5 hover:bg-white/90 disabled:opacity-50 dark:border-white/10 dark:bg-neutral-800/70 dark:text-neutral-100"
                     >
-                        <ExternalLinkIcon />
+                        <ExternalLinkIcon className="size-4" />
                     </Button>
                 </Hint>
             </div>
             <iframe
                 key={fragmentKey}
-                className="w-full h-full"
+                className="h-full w-full flex-1"
                 sandbox="allow-forms allow-scripts allow-same-origin"
                 src={data.sandboxUrl}
             />
