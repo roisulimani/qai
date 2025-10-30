@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
+import { projectGlassBubbleClass } from "../styles";
 
 
 interface Props {
@@ -65,12 +66,13 @@ export const MessageForm = ({ projectId }: Props) => {
     const isButtonDisabled = isPending || !form.formState.isValid;
     
     return (
-        < Form {...form}>
-            <form 
+        <Form {...form}>
+            <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className={cn(
-                    "relative border p-4 pt-1 rounded-xl bg-sidebar dark:bg-sidebar transition-all",
-                    isFocused && "shadow-xs",
+                    projectGlassBubbleClass,
+                    "relative flex flex-col gap-3 border-white/40 px-4 py-4 transition-all focus-within:border-white/60 focus-within:bg-white/90 dark:border-white/10 dark:focus-within:border-white/20 dark:focus-within:bg-neutral-900",
+                    isFocused && "shadow-[0_20px_90px_-45px_rgba(15,23,42,0.45)]",
                     showUsage && "rounded-t-none",
                 )}
             >
@@ -85,7 +87,7 @@ export const MessageForm = ({ projectId }: Props) => {
                         onBlur={() => setIsFocused(false)}
                         minRows={2}
                         maxRows={8}
-                        className="pt-4 resize-none border-none w-full outline-none bg-transparent"
+                        className="pt-2 resize-none border-none bg-transparent text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70"
                         placeholder="What do you want to build?"
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
@@ -96,20 +98,19 @@ export const MessageForm = ({ projectId }: Props) => {
                         />
                     )}
                 />
-                <div className="flex gap-x-2 items-end justify-between pt-2">
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center
-                        gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <div className="flex items-end justify-between gap-2 pt-1">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded-full border border-white/40 bg-white/60 px-2 font-sans text-[10px] font-medium text-slate-700 shadow-sm dark:border-white/10 dark:bg-neutral-900/70 dark:text-slate-200">
                             <span>&#8984;</span>Enter
                         </kbd>
-                        &nbsp;to submit
+                        <span className="ml-2 normal-case tracking-normal text-muted-foreground/80">to submit</span>
                     </div>
                     <Button
                         type="submit"
                         disabled={isButtonDisabled}
                         className={cn(
-                            "size-8 rounded-full",
-                            isButtonDisabled && "opacity-50 cursor-not-allowed",
+                            "flex size-10 items-center justify-center rounded-full border border-white/40 bg-slate-900 text-white shadow-lg transition hover:bg-slate-900/90 dark:border-white/10 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90",
+                            isButtonDisabled && "opacity-40 hover:bg-slate-900",
                         )}
                     >
                         {isPending ? (

@@ -4,6 +4,8 @@ import { ExternalLinkIcon, RefreshCcwIcon } from "lucide-react";
 import { Fragment } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
+import { cn } from "@/lib/utils";
+import { projectGlassPanelClass } from "../styles";
 
 interface Props {
     data: Fragment;
@@ -26,24 +28,30 @@ export const FragmentWeb = ({ data }: Props) => {
     };
 
     return (
-        <div className="flex flex-col w-full h-full">
-            <div className="p-2 border-b bg-sidebar flex items-center gap-x-2">
+        <div
+            className={cn(
+                projectGlassPanelClass,
+                "flex h-full w-full flex-col overflow-hidden"
+            )}
+        >
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/30 bg-white/40 px-3 py-3 text-xs font-medium supports-[backdrop-filter]:backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/60">
                 <Hint description="Refresh" side="bottom" align="start">
                     <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={onRefreshClick}
+                        className="rounded-full border border-white/40 bg-white/70 text-foreground shadow-sm transition hover:bg-white/80 dark:border-white/10 dark:bg-neutral-900/70 dark:text-white"
                     >
                         <RefreshCcwIcon />
                     </Button>
                 </Hint>
                 <Hint description="Copy URL" side="bottom" align="start">
-                    <Button 
-                        variant="outline"
+                    <Button
+                        variant="ghost"
                         size="sm"
                         onClick={handleCopyClick}
                         disabled={!data.sandboxUrl || copied}
-                        className="flex-1 justify-start text-start font-normal"
+                        className="flex-1 justify-start truncate rounded-full border border-white/30 bg-white/80 text-start font-medium text-foreground shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed dark:border-white/10 dark:bg-neutral-900/70 dark:text-white"
                     >
                         <span className="truncate">
                             {data.sandboxUrl}
@@ -54,11 +62,12 @@ export const FragmentWeb = ({ data }: Props) => {
                     <Button
                         size="sm"
                         disabled={!data.sandboxUrl}
-                        variant={"outline"}
+                        variant="ghost"
                         onClick={() => {
                             if (!data.sandboxUrl) return;
                             window.open(data.sandboxUrl, "_blank");
                         }}
+                        className="rounded-full border border-white/30 bg-white/70 text-foreground shadow-sm transition hover:bg-white/80 disabled:opacity-40 dark:border-white/10 dark:bg-neutral-900/70 dark:text-white"
                     >
                         <ExternalLinkIcon />
                     </Button>
