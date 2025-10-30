@@ -12,7 +12,7 @@ interface UserMessageProps {
 const UserMessage = ({ content }: UserMessageProps) => {
     return (
         <div className="flex justify-end pb-4 pr-2 pl-10">
-            <Card className="rounded-lg bg-muted p-3 shadow-none border-none max-w-[80%] break-words">
+            <Card className="max-w-[80%] break-words rounded-2xl border border-white/30 bg-white/80 px-4 py-3 text-sm shadow-lg shadow-black/5 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/65 dark:border-white/10 dark:bg-neutral-900/70 dark:text-neutral-100 dark:shadow-black/40">
                 {content}
             </Card>
         </div>
@@ -33,26 +33,32 @@ const FragmentCard = ({
     return (
         <button
             className={cn(
-                "flex items-start text-start gap-2 border rounded-lg bg-muted w-fit p-3 hover:bg-secondary \
-                transition-colors",
+                "group/fragment flex w-fit items-start gap-3 rounded-2xl border border-white/30 bg-white/80 px-4 py-3 text-left text-sm shadow-sm shadow-black/5 transition hover:border-white/40 hover:bg-white/90 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-neutral-900/70 dark:text-neutral-200 dark:shadow-black/40",
                 isActiveFragment &&
-                    "bg-primary text-primary-foreground border-primary hover:bg-primary",
+                    "border-primary/60 bg-primary/90 text-primary-foreground shadow-primary/40 hover:border-primary/60 hover:bg-primary/90",
             )}
             onClick={() => onFragmentClick(fragment)}
         >
-            <Code2Icon className="size-4 mt-0.5" />
-                <div className="flex flex-col flex-1">
-                    <span className="text-sm font-medium line-clamp-1">
-                        {fragment.title}
-                    </span>
-                    <span className="text-sm">
-                        Preview
-                    </span>
-                </div>
-                <div className="flex items-center justify-center mt-0.5">
-                    <ChevronRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
-                </div>
-            
+            <div
+                className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-xl border border-white/40 bg-white/70 shadow-sm supports-[backdrop-filter]:backdrop-blur dark:border-white/10 dark:bg-neutral-900/70",
+                    isActiveFragment && "border-transparent bg-primary/20 text-primary-foreground",
+                )}
+            >
+                <Code2Icon className="size-4" />
+            </div>
+            <div className="flex flex-col flex-1">
+                <span className="text-sm font-medium line-clamp-1">
+                    {fragment.title}
+                </span>
+                <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                    Preview
+                </span>
+            </div>
+            <div className="flex items-center justify-center pt-1">
+                <ChevronRightIcon className="size-4 transition-transform duration-200 group-hover/fragment:translate-x-1" />
+            </div>
+
         </button>
     );
 };
@@ -66,36 +72,40 @@ interface AssistantMessageProps {
     type: MessageType;
 };
 
-const AssistantMessage = ({ 
-    content, 
-    fragment, 
-    createdAt, 
-    isActiveFragment, 
-    onFragmentClick, 
-    type 
+const AssistantMessage = ({
+    content,
+    fragment,
+    createdAt,
+    isActiveFragment,
+    onFragmentClick,
+    type
 }: AssistantMessageProps) => {
     return (
         <div className={cn(
-            "flex flex-col group px-2 pb-4",
-            type === "ERROR" && "text-red-700 dark:text-red-500",
+            "group flex flex-col px-2 pb-4",
+            type === "ERROR" && "text-red-600 dark:text-red-400",
         )}>
-            <div className="flex items-center gap-2 pl-2 mb-2">
-                <Image 
-                src="/logo.png"
-                alt="QAI"
-                width={30}
-                height={30} 
-                className="shrink-0"
-            />
-                <span className="text-sm font-medium">
-                    QAI
-                </span>
-                <span className="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                    {format(createdAt, "HH:mm 'on' MMMM d, yyyy")}
-                </span>
+            <div className="mb-3 flex items-center gap-3 pl-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/40 bg-white/80 shadow-sm supports-[backdrop-filter]:backdrop-blur dark:border-white/10 dark:bg-neutral-900/70">
+                    <Image
+                        src="/logo.png"
+                        alt="QAI"
+                        width={26}
+                        height={26}
+                        className="rounded-md"
+                    />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold tracking-wide text-foreground">
+                        QAI Assistant
+                    </span>
+                    <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                        {format(createdAt, "HH:mm 'on' MMMM d, yyyy")}
+                    </span>
+                </div>
             </div>
-            <div className="pl-8.5 flex flex-col gap-y-4">
-                <span>
+            <div className="flex flex-col gap-y-4 rounded-3xl border border-white/30 bg-white/80 px-5 py-4 text-sm shadow-sm shadow-black/5 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-neutral-900/70 dark:text-neutral-100 dark:shadow-black/40">
+                <span className="leading-relaxed">
                     {content}
                 </span>
                 {fragment && type === "RESULT" && (
@@ -105,7 +115,7 @@ const AssistantMessage = ({
                         onFragmentClick={onFragmentClick}
                     />
                 )}
-            </div>   
+            </div>
         </div>
     );
 };
@@ -120,14 +130,14 @@ interface MessageCardProps {
     type: MessageType;
 }
 
-export const MessageCard = ({ 
-    content, 
-    role, 
-    fragment, 
-    createdAt, 
-    isActiveFragment, 
-    onFragmentClick, 
-    type 
+export const MessageCard = ({
+    content,
+    role,
+    fragment,
+    createdAt,
+    isActiveFragment,
+    onFragmentClick,
+    type
 }: MessageCardProps) => {
     if (role === "ASSISTANT") {
         return (

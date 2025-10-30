@@ -47,12 +47,12 @@ export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment
     const isLastMessageUserMessage = lastMessage?.role === "USER";
 
     return (
-        <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto">
-                <div className="pt-2 pr-1">
+        <div className="flex flex-1 flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 pt-4">
+                <div className="space-y-4">
                     {messages.map((message) => (
                         <MessageCard
-                            key={message.id} 
+                            key={message.id}
                             content={message.content}
                             role={message.role}
                             fragment={message.fragment}
@@ -66,9 +66,8 @@ export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment
                     <div ref={bottomRef} />
                 </div>
             </div>
-            <div className="relative p-3 pt-1">
-                <div className="absolute -top-6 left-0 right-0 h-6 bg-gradient-to-b from-transparent
-                 to-background pointer-events-none"/>
+            <div className="relative px-4 pb-4">
+                <div className="pointer-events-none absolute -top-6 left-4 right-4 h-12 rounded-full bg-gradient-to-b from-transparent via-white/60 to-white/80 dark:via-neutral-900/30 dark:to-neutral-950/70" />
                 <MessageForm projectId={projectId} />
             </div>
         </div>

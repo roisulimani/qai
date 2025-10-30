@@ -3,6 +3,8 @@ import { getQueryClient, trpc } from "@/trpc/server";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { Suspense } from "react";
 
+import { FloatingGlassLoader } from "@/components/floating-glass-loader";
+
 interface Props {
     params: Promise<{ 
         projectId: string 
@@ -17,7 +19,14 @@ const Page = async ({ params }: Props) => {
     void queryClient.prefetchQuery(trpc.projects.getOne.queryOptions({ id: projectId }));
     return (
         <HydrationBoundary state={dehydrate(queryClient)}>
-            <Suspense fallback={<p>Loading...</p>}>
+            <Suspense
+                fallback={(
+                    <FloatingGlassLoader
+                        label="Preparing your project workspace"
+                        description="Gathering conversations, fragments, and the latest updates"
+                    />
+                )}
+            >
                 <ProjectView projectId={projectId} />
             </Suspense>
         </HydrationBoundary>

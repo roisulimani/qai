@@ -65,12 +65,12 @@ export const MessageForm = ({ projectId }: Props) => {
     const isButtonDisabled = isPending || !form.formState.isValid;
     
     return (
-        < Form {...form}>
-            <form 
+        <Form {...form}>
+            <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className={cn(
-                    "relative border p-4 pt-1 rounded-xl bg-sidebar dark:bg-sidebar transition-all",
-                    isFocused && "shadow-xs",
+                    "relative rounded-2xl border border-white/30 bg-white/80 px-5 pb-5 pt-4 text-sm shadow-lg shadow-black/5 transition-all supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-neutral-900/70 dark:shadow-black/40",
+                    isFocused && "ring-1 ring-primary/40 dark:ring-primary/30",
                     showUsage && "rounded-t-none",
                 )}
             >
@@ -78,14 +78,14 @@ export const MessageForm = ({ projectId }: Props) => {
                     control={form.control}
                     name="message"
                     render={({ field }) => (
-                        <TextareaAutosize 
+                        <TextareaAutosize
                         {...field}
                         disabled={isPending}
                         onFocus={() => setIsFocused(true)}
                         onBlur={() => setIsFocused(false)}
                         minRows={2}
                         maxRows={8}
-                        className="pt-4 resize-none border-none w-full outline-none bg-transparent"
+                        className="w-full resize-none border-none bg-transparent pt-3 text-base leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/80"
                         placeholder="What do you want to build?"
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
@@ -96,20 +96,19 @@ export const MessageForm = ({ projectId }: Props) => {
                         />
                     )}
                 />
-                <div className="flex gap-x-2 items-end justify-between pt-2">
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center
-                        gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <div className="flex items-end justify-between gap-x-2 pt-4">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                        Press
+                        <kbd className="ml-2 inline-flex h-5 select-none items-center gap-1 rounded-full border border-white/30 bg-white/80 px-2 font-mono text-[11px] font-semibold text-muted-foreground shadow-sm supports-[backdrop-filter]:backdrop-blur dark:border-white/10 dark:bg-neutral-900/80">
                             <span>&#8984;</span>Enter
                         </kbd>
-                        &nbsp;to submit
                     </div>
                     <Button
                         type="submit"
                         disabled={isButtonDisabled}
                         className={cn(
-                            "size-8 rounded-full",
-                            isButtonDisabled && "opacity-50 cursor-not-allowed",
+                            "h-9 w-9 rounded-full bg-gradient-to-br from-primary to-violet-500 text-white shadow-lg shadow-primary/30 transition hover:from-primary/90 hover:to-violet-500/90",
+                            isButtonDisabled && "cursor-not-allowed opacity-60 hover:from-primary hover:to-violet-500",
                         )}
                     >
                         {isPending ? (
