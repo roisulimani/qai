@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ProjectForm } from "@/modules/home/ui/components/project-form";
 import { ProjectsList } from "@/modules/home/ui/components/projects-list";
-import { CompanyUsageSummary } from "@/modules/home/ui/components/company-usage";
 
 const HomePage = () => {
     return (
@@ -26,8 +25,8 @@ const HomePage = () => {
                   <span>Product</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" className="opacity-70" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
                 </button>
-                <Link href="/pricing" className="text-sm px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition">
-                  Pricing
+                <Link href="/usage" className="text-sm px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition">
+                  Usage
                 </Link>
                 <Link href="/blog" className="text-sm px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition">
                   Blog
@@ -61,9 +60,6 @@ const HomePage = () => {
 
       {/* Spacer to avoid overlap with fixed header */}
       <div className="h-20" />
-      <div className="mb-6">
-        <CompanyUsageSummary />
-      </div>
       <section className="space-y-6 py-6 md:py-16">
         <div className="flex flex-col items-center">
           <Image 
