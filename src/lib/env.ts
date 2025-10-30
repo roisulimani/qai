@@ -3,7 +3,8 @@ import { z } from "zod";
 const envSchema = z.object({
   ACCESS_CODE_SECRET: z.string().default("dev-access-code-secret"),
   ADMIN_PORTAL_SECRET: z.string().default("dev-admin-secret"),
-  PROJECT_CREDIT_COST: z.coerce.number().int().positive().default(10),
+  PROJECT_CREDIT_COST: z.coerce.number().int().positive().default(1),
+  MESSAGE_CREDIT_COST: z.coerce.number().int().positive().default(1),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(14),
 });
 

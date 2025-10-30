@@ -8,9 +8,23 @@ import { appRouter } from './routers/_app';
 // IMPORTANT: Create a stable getter for the query client that
 //            will return the same client during the same request.
 export const getQueryClient = cache(makeQueryClient);
+function headersToObject(h: Awaited<ReturnType<typeof headers>>): Record<string, string> {
+  const obj: Record<string, string> = {};
+  h.forEach((value, key) => {
+    obj[key] = value;
+  });
+  return obj;
+}
 export const trpc = createTRPCOptionsProxy({
-  ctx: async () => createTRPCContext({ headers: headers() }),
+  ctx: async () => {
+    const h = await headers();
+    return createTRPCContext({ headers: headersToObject(h) });
+  },
   router: appRouter,
   queryClient: getQueryClient,
 });
-export const caller = appRouter.createCaller(createTRPCContext({ headers: headers() }));
+export async function getCaller() {
+  const h = await headers();
+  const ctx = await createTRPCContext({ headers: headersToObject(h) });
+  return appRouter.createCaller(ctx);
+}

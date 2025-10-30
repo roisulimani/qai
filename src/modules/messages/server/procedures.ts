@@ -4,6 +4,7 @@ import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { inngest } from '@/inngest/client';
+import { recordMessageSendSpend } from '@/modules/companies/server/credits';
 
 export const messagesRouter = createTRPCRouter({
 
@@ -60,6 +61,7 @@ export const messagesRouter = createTRPCRouter({
                 type: "RESULT",
             },
         });
+        await recordMessageSendSpend(ctx.company.id, input.projectId, newMessage.id);
         await inngest.send({
             name: "code-agent/run",
             data: {

@@ -39,7 +39,10 @@ export const MessageForm = ({ projectId }: Props) => {
             queryClient.invalidateQueries(
                 trpc.messages.getMany.queryOptions({ projectId }),
             );
-            // TODO: Handle invalidation of usage stats
+            // Invalidate usage to refresh credits UI
+            queryClient.invalidateQueries(
+                trpc.companies.getCurrent.queryOptions(),
+            );
         },
         
         onError: (error) => {

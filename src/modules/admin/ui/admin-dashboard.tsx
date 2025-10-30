@@ -19,13 +19,13 @@ import { useTRPC } from "@/trpc/client";
 const createSchema = z.object({
   name: z.string().min(1),
   code: z.string().min(4),
-  initialCredits: z.coerce.number().int().min(0),
+  initialCredits: z.number().int().min(0),
   codeLabel: z.string().optional(),
 });
 
 const grantSchema = z.object({
   companyId: z.string().min(1),
-  amount: z.coerce.number().int().positive(),
+  amount: z.number().int().positive(),
   reason: z.string().optional(),
 });
 
@@ -34,12 +34,12 @@ export const AdminDashboard = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: companies } = useQuery(trpc.companies.adminList.queryOptions(), {
-    staleTime: 10_000,
-  });
+	const { data: companies } = useQuery(
+		trpc.companies.adminList.queryOptions(undefined, { staleTime: 10_000 }),
+	);
 
-  const createForm = useForm<z.infer<typeof createSchema>>({
-    resolver: zodResolver(createSchema),
+	const createForm = useForm<z.infer<typeof createSchema>>({
+		resolver: zodResolver(createSchema) as any,
     defaultValues: {
       name: "",
       code: "",

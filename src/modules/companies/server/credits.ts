@@ -1,15 +1,17 @@
 import { TRPCError } from "@trpc/server";
 
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 
 const PROJECT_CREDIT_COST = env.PROJECT_CREDIT_COST;
+const MESSAGE_CREDIT_COST = env.MESSAGE_CREDIT_COST;
 
 export const spendCredits = async (
   companyId: string,
   amount: number,
   reason: string,
-  metadata?: Record<string, unknown>,
+  metadata?: Prisma.InputJsonValue,
 ) => {
   if (amount <= 0) {
     return;
@@ -59,5 +61,16 @@ export const recordProjectCreationSpend = async (
 ) => {
   await spendCredits(companyId, PROJECT_CREDIT_COST, "project_created", {
     projectId,
+  });
+};
+
+export const recordMessageSendSpend = async (
+  companyId: string,
+  projectId: string,
+  messageId: string,
+) => {
+  await spendCredits(companyId, MESSAGE_CREDIT_COST, "message_sent", {
+    projectId,
+    messageId,
   });
 };

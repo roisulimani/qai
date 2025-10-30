@@ -7,9 +7,9 @@ import { useTRPC } from "@/trpc/client";
 
 export const CompanyUsageSummary = () => {
     const trpc = useTRPC();
-    const { data, isLoading } = useQuery(trpc.companies.getCurrent.queryOptions(), {
-        staleTime: 10_000,
-    });
+    const { data, isLoading } = useQuery(
+        trpc.companies.getCurrent.queryOptions(),
+    );
 
     if (isLoading) {
         return (

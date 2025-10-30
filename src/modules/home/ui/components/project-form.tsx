@@ -25,9 +25,9 @@ export const ProjectForm = () => {
     const router = useRouter();
     const trpc = useTRPC();
     const queryClient = useQueryClient();
-    const { data: company } = useQuery(trpc.companies.getCurrent.queryOptions(), {
-        staleTime: 10_000,
-    });
+    const { data: company } = useQuery(
+        trpc.companies.getCurrent.queryOptions(undefined, { staleTime: 10_000 }),
+    );
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
