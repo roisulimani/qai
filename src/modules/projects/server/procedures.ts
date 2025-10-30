@@ -1,17 +1,19 @@
-import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import { TRPCError } from "@trpc/server";
+
+import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { inngest } from '@/inngest/client';
 import { generateSlug } from "random-word-slugs";
-import { TRPCError } from "@trpc/server";
+import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 
 export const projectsRouter = createTRPCRouter({
 
-    getOne: baseProcedure
+    getOne: companyProcedure
     .input(z.object({
         id: z.string().min(1, {message: "Project ID is required"})
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
         const existingProject = await prisma.project.findUnique({
             where: {
                 id: input.id,
@@ -23,20 +25,26 @@ export const projectsRouter = createTRPCRouter({
                 message: "Project not found",
             });
         }
+        if (existingProject.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
         return existingProject;
     }),
 
-    getMany: baseProcedure
-    .query(async () => {
+    getMany: companyProcedure
+    .query(async ({ ctx }) => {
         const projects = await prisma.project.findMany({
             orderBy: {
                 createdAt: "desc",
+            },
+            where: {
+                companyId: ctx.company.id,
             },
         });
         return projects;
     }),
 
-    create: baseProcedure
+    create: companyProcedure
     .input(
         z.object({
             value: z.string()
@@ -44,12 +52,13 @@ export const projectsRouter = createTRPCRouter({
              .max(1000, {message: "Prompt must be less than 1000 characters"}),
         })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
         const createdProject = await prisma.project.create({
             data: {
-                name: generateSlug(2, { 
-                    format: "kebab" 
+                name: generateSlug(2, {
+                    format: "kebab"
                 }),
+                companyId: ctx.company.id,
                 messages: {
                     create: {
                         content: input.value,
@@ -60,11 +69,21 @@ export const projectsRouter = createTRPCRouter({
             }
         });
 
+        await prisma.company.update({
+            where: { id: ctx.company.id },
+            data: {
+                projectsCreated: { increment: 1 },
+            }
+        });
+
+        await recordProjectCreationSpend(ctx.company.id, createdProject.id);
+
         await inngest.send({
             name: "code-agent/run",
             data: {
               value: input.value,
               projectId: createdProject.id,
+              companyId: ctx.company.id,
             },
           });
           return createdProject;

@@ -2,10 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { ProjectForm } from "@/modules/home/ui/components/project-form";
 import { ProjectsList } from "@/modules/home/ui/components/projects-list";
+import { CompanyUsageSummary } from "@/modules/home/ui/components/company-usage";
 
 const HomePage = () => {
-  return (
-    <div className="flex flex-col max-w-5xl mx-auto w-full">
+    return (
+        <div className="flex flex-col max-w-5xl mx-auto w-full">
       {/* Floating glass header */}
       <div className="fixed top-0 inset-x-0 z-50">
         <div className="mx-auto max-w-6xl px-3 sm:px-4">
@@ -60,6 +61,9 @@ const HomePage = () => {
 
       {/* Spacer to avoid overlap with fixed header */}
       <div className="h-20" />
+      <div className="mb-6">
+        <CompanyUsageSummary />
+      </div>
       <section className="space-y-6 py-6 md:py-16">
         <div className="flex flex-col items-center">
           <Image 

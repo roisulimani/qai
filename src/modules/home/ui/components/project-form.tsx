@@ -6,7 +6,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowUpIcon, Loader2Icon } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,9 @@ export const ProjectForm = () => {
     const router = useRouter();
     const trpc = useTRPC();
     const queryClient = useQueryClient();
+    const { data: company } = useQuery(trpc.companies.getCurrent.queryOptions(), {
+        staleTime: 10_000,
+    });
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -36,6 +39,9 @@ export const ProjectForm = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries(
                 trpc.projects.getMany.queryOptions(),
+            );
+            queryClient.invalidateQueries(
+                trpc.companies.getCurrent.queryOptions(),
             );
             router.push(`/projects/${data.id}`);
             toast.success("Project created successfully");
@@ -64,12 +70,13 @@ export const ProjectForm = () => {
 
     const [isFocused, setIsFocused] = useState(false);
     const isPending = createProject.isPending;
-    const isButtonDisabled = isPending || !form.formState.isValid;
+    const hasCredits = (company?.creditBalance ?? 0) > 0;
+    const isButtonDisabled = isPending || !form.formState.isValid || !hasCredits;
     
     return (
-        < Form {...form}>
+        <Form {...form}>
             <section className="space-y-6">
-                <form 
+                <form
                     onSubmit={form.handleSubmit(onSubmit)}
                     className={cn(
                         "relative p-4 pt-1 rounded-2xl border border-white/20 dark:border-white/10 bg-white/60 dark:bg-neutral-900/60 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/50 shadow-lg shadow-black/5 transition-all",
@@ -122,21 +129,27 @@ export const ProjectForm = () => {
                         </Button>
                     </div>
                 </form>
-                
-            <div className="flex-wrap justify-center gap-2 hidden md:flex max-w-3xl">
-                {PROJECT_TEMPLATES.map((template) => (
-                    <Button
-                        key={template.title}
-                        variant="outline"
-                        size="sm"
-                        className="bg-white dark:bg-sidebar"
-                        onClick={() => handleTemplateClick(template.prompt)}
-                    >
-                        {/* {template.emoji} */}
-                        {template.title}
-                    </Button>
-                ))}
-            </div>
+
+                {!hasCredits && (
+                    <div className="rounded-xl border border-dashed border-destructive/50 bg-destructive/5 p-3 text-xs text-destructive">
+                        You are out of credits. Reach out to Lior for more access to QAI.
+                    </div>
+                )}
+
+                <div className="flex-wrap justify-center gap-2 hidden md:flex max-w-3xl">
+                    {PROJECT_TEMPLATES.map((template) => (
+                        <Button
+                            key={template.title}
+                            variant="outline"
+                            size="sm"
+                            className="bg-white dark:bg-sidebar"
+                            onClick={() => handleTemplateClick(template.prompt)}
+                        >
+                            {/* {template.emoji} */}
+                            {template.title}
+                        </Button>
+                    ))}
+                </div>
             </section>
         </Form>
     );

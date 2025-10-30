@@ -24,7 +24,50 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   messages Message[]
+}
+
+model Company {
+  id                 String   @id @default(uuid())
+  name               String
+  codeLabel          String?
+  codeHash           String   @unique
+  creditBalance      Int      @default(0)
+  totalCreditsGranted Int     @default(0)
+  totalCreditsSpent  Int      @default(0)
+  projectsCreated    Int      @default(0)
+  lastActiveAt       DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sessions           CompanySession[]
+  projects           Project[]
+  creditTransactions CreditTransaction[]
+}
+
+model CompanySession {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime?
+  lastSeenAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+}
+
+model CreditTransaction {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String
+  metadata  Json?
+  createdAt DateTime @default(now())
 }
 
 enum MessageRole {
