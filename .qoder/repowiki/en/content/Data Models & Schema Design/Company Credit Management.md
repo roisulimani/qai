@@ -13,7 +13,17 @@
 - [messages/procedures.ts](file://src/modules/messages/server/procedures.ts)
 - [route.ts](file://src/app/api/admin/login/route.ts)
 - [route.ts](file://src/app/api/auth/login/route.ts)
+- [page.tsx](file://src/app/usage/page.tsx) - *Added in recent commit*
+- [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx) - *Refactored for usage page*
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Added new section: "Dedicated Usage Page" to document the newly created `/usage` page
+- Updated "User Interface Components" section to reflect the refactored `SiteHeader` component
+- Added references to new and modified files in document, section, and diagram sources
+- Updated table of contents to include new section
+- Enhanced source tracking with annotations for recently added or modified files
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -27,7 +37,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-The Company Credit Management system is a comprehensive solution for managing access and usage credits for companies using the QAI platform. The system enables administrators to create company accounts with access codes, allocate initial credits, and monitor credit usage across projects and messages. Companies consume credits when creating projects and sending messages, with real-time tracking and transaction logging. The system includes both administrative interfaces for managing companies and user-facing components for displaying credit usage.
+The Company Credit Management system is a comprehensive solution for managing access and usage credits for companies using the QAI platform. The system enables administrators to create company accounts with access codes, allocate initial credits, and monitor credit usage across projects and messages. Companies consume credits when creating projects and sending messages, with real-time tracking and transaction logging. The system includes both administrative interfaces for managing companies and user-facing components for displaying credit usage. Recently, a dedicated usage page has been added to provide a centralized view of company statistics and credit information.
 
 ## Project Structure
 The credit management system is organized across several key directories in the application:
@@ -37,6 +47,7 @@ The credit management system is organized across several key directories in the 
 - `src/modules/home/ui/components/`: User-facing components for displaying credit usage
 - `src/lib/`: Shared utilities for authentication, database access, and environment configuration
 - `src/modules/projects/server/` and `src/modules/messages/server/`: Procedures that consume credits when creating projects and messages
+- `src/app/usage/`: New dedicated page for company usage statistics and credit tracking
 
 ```mermaid
 graph TB
@@ -95,6 +106,7 @@ subgraph "Frontend"
 A1[Admin Dashboard]
 A2[Company Usage]
 A3[Access Form]
+A4[Usage Page]
 end
 subgraph "API Layer"
 B1[Admin Endpoints]
@@ -113,6 +125,7 @@ end
 A1 --> B1
 A2 --> B3
 A3 --> B2
+A4 --> B3
 B1 --> C3
 B2 --> C2
 B3 --> C1
@@ -127,6 +140,7 @@ D1 --> D2
 - [db.ts](file://src/lib/db.ts)
 - [credits.ts](file://src/modules/companies/server/credits.ts)
 - [procedures.ts](file://src/modules/companies/server/procedures.ts)
+- [page.tsx](file://src/app/usage/page.tsx) - *Added in recent commit*
 
 ## Detailed Component Analysis
 
@@ -241,6 +255,47 @@ style G fill:#E8F5E8
 - [company-usage.tsx](file://src/modules/home/ui/components/company-usage.tsx#L1-L70)
 - [admin-dashboard.tsx](file://src/modules/admin/ui/admin-dashboard.tsx#L1-L308)
 
+### Dedicated Usage Page
+A new dedicated usage page has been implemented to provide a comprehensive view of company statistics and credit information. The page at `/usage` displays key metrics including credits remaining, projects built, and credits used. It utilizes a reusable `SiteHeader` component that has been refactored for consistent navigation across the application.
+
+The usage page features:
+- Company performance overview with visual hierarchy
+- Quick action links for common tasks
+- Company usage summary component showing real-time credit data
+- Projects list component displaying all company projects
+- Responsive design with radial background gradient
+
+```mermaid
+flowchart TD
+A[UsagePage] --> B[SiteHeader]
+A --> C[Usage Overview Banner]
+A --> D[CompanyUsageSummary]
+A --> E[ProjectsList]
+B --> F[Navigation Links]
+C --> G[Performance Headline]
+C --> H[Quick Action Links]
+D --> I[Company Info]
+D --> J[Credits Remaining]
+D --> K[Projects Built]
+D --> L[Credits Used]
+E --> M[Project Cards]
+style A fill:#2196F3,stroke:#1976D2
+style D fill:#4CAF50,stroke:#388E3C
+style E fill:#FF9800,stroke:#F57C00
+```
+
+**Diagram sources**
+- [page.tsx](file://src/app/usage/page.tsx#L1-L107) - *Added in recent commit*
+- [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx#L1-L85) - *Refactored for usage page*
+- [company-usage.tsx](file://src/modules/home/ui/components/company-usage.tsx#L1-L69)
+- [projects-list.tsx](file://src/modules/home/ui/components/projects-list.tsx#L1-L59)
+
+**Section sources**
+- [page.tsx](file://src/app/usage/page.tsx#L1-L107) - *Added in recent commit*
+- [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx#L1-L85) - *Refactored for usage page*
+- [company-usage.tsx](file://src/modules/home/ui/components/company-usage.tsx#L1-L69)
+- [projects-list.tsx](file://src/modules/home/ui/components/projects-list.tsx#L1-L59)
+
 ## Dependency Analysis
 The credit management system has a well-defined dependency structure that ensures separation of concerns while maintaining necessary connections between components. The system relies on several key dependencies for its functionality.
 
@@ -260,19 +315,20 @@ O --> Q[prisma.companySession.create]
 R[Company Procedures] --> S[prisma.company.findUnique]
 R --> T[prisma.company.create]
 R --> U[prisma.creditTransaction.create]
+V[Usage Page] --> W[SiteHeader]
+V --> X[CompanyUsageSummary]
+V --> Y[ProjectsList]
 ```
 
 **Diagram sources**
 - [package.json](file://package.json)
 - [procedures.ts](file://src/modules/companies/server/procedures.ts)
 - [credits.ts](file://src/modules/companies/server/credits.ts)
-
-**Section sources**
-- [package.json](file://package.json)
-- [prisma/migrations](file://prisma/migrations)
+- [page.tsx](file://src/app/usage/page.tsx) - *Added in recent commit*
+- [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx) - *Refactored for usage page*
 
 ## Performance Considerations
-The credit management system is designed with performance in mind, using database transactions for atomic operations and efficient queries for data retrieval. The system implements caching through React's cache mechanism for company sessions, reducing database load for frequently accessed data. Database indexes are properly configured on key fields such as codeHash and token to ensure fast lookups. The use of tRPC with query options allows for effective client-side caching and data synchronization, minimizing unnecessary API calls.
+The credit management system is designed with performance in mind, using database transactions for atomic operations and efficient queries for data retrieval. The system implements caching through React's cache mechanism for company sessions, reducing database load for frequently accessed data. Database indexes are properly configured on key fields such as codeHash and token to ensure fast lookups. The use of tRPC with query options allows for effective client-side caching and data synchronization, minimizing unnecessary API calls. The new usage page implements React Query for efficient data fetching and caching of company statistics.
 
 ## Troubleshooting Guide
 When encountering issues with the credit management system, consider the following common problems and solutions:
@@ -283,4 +339,4 @@ When encountering issues with the credit management system, consider the followi
 - [procedures.ts](file://src/modules/companies/server/procedures.ts#L20-L30)
 
 ## Conclusion
-The Company Credit Management system provides a robust solution for managing company access and credit usage within the QAI platform. The system's architecture ensures data consistency through transactional operations while providing a flexible interface for both administrators and end users. Key features include secure authentication, real-time credit tracking, and comprehensive administrative controls. The modular design allows for easy extension and maintenance, with clear separation between different functional areas. The system effectively balances security, performance, and usability to support the platform's business requirements.
+The Company Credit Management system provides a robust solution for managing company access and credit usage within the QAI platform. The system's architecture ensures data consistency through transactional operations while providing a flexible interface for both administrators and end users. Key features include secure authentication, real-time credit tracking, and comprehensive administrative controls. The recent addition of a dedicated usage page with company statistics and the refactoring of the header into a reusable component enhance the user experience by providing a centralized view of credit information including credits remaining, projects built, and credits used. The modular design allows for easy extension and maintenance, with clear separation between different functional areas. The system effectively balances security, performance, and usability to support the platform's business requirements.
