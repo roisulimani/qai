@@ -1,9 +1,14 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 
-export const SiteHeader = () => {
+import { getCurrentCompanySession } from "@/lib/company-session";
+
+export const SiteHeader = async () => {
+    const session = await getCurrentCompanySession();
+    const isSignedIn = Boolean(session);
+    const primaryCtaHref = isSignedIn ? "/build" : "/access";
+    const primaryCtaLabel = isSignedIn ? "Try It Now" : "Get Access";
+
     return (
         <div className="fixed inset-x-0 top-0 z-50">
             <div className="mx-auto max-w-6xl px-3 sm:px-4">
@@ -20,12 +25,16 @@ export const SiteHeader = () => {
                             <Link href="/build" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
                                 Build
                             </Link>
-                            <Link href="/usage" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                Usage
-                            </Link>
-                            <Link href="/projects" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                Projects
-                            </Link>
+                            {isSignedIn && (
+                                <Link href="/usage" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                    Usage
+                                </Link>
+                            )}
+                            {isSignedIn && (
+                                <Link href="/projects" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                    Projects
+                                </Link>
+                            )}
                             <Link href="/contact" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
                                 Contact
                             </Link>
@@ -53,10 +62,10 @@ export const SiteHeader = () => {
                                 <Image src="/logo.png" alt="avatar" width={20} height={20} className="rounded-full opacity-80" />
                             </Link> */}
                             <Link
-                                href="/try-it-now"
+                                href={primaryCtaHref}
                                 className="inline-flex h-8 items-center gap-2 rounded-full border border-black/5 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 dark:bg-white dark:text-gray-900"
                             >
-                                <span>Try It Now</span>
+                                <span>{primaryCtaLabel}</span>
                             </Link>
                         </div>
                     </div>

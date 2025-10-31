@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { SiteHeader } from "@/modules/home/ui/components/site-header";
+import { EarlyAccessRequestForm } from "@/modules/home/ui/components/early-access-request-form";
 
 const LandingPage = () => {
     return (
@@ -69,6 +70,19 @@ const LandingPage = () => {
                             </div>
                         </div>
                     </div>
+                </section>
+
+                <section className="grid gap-8 rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl shadow-black/10 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-white/10 dark:bg-neutral-900/60 dark:shadow-black/30 dark:supports-[backdrop-filter]:bg-neutral-900/50 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+                    <div className="space-y-4">
+                        <span className="inline-flex items-center rounded-full border border-black/5 bg-white/80 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground dark:border-white/10 dark:bg-white/10">
+                            Request early access
+                        </span>
+                        <h2 className="text-3xl font-semibold sm:text-4xl">Be the first to experience the full QAI platform</h2>
+                        <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                            QAI is currently available to a limited number of partners. Leave your email address and we&apos;ll send you an access code as soon as new seats open up.
+                        </p>
+                    </div>
+                    <EarlyAccessRequestForm />
                 </section>
 
                 <section className="grid gap-6 lg:grid-cols-3">
