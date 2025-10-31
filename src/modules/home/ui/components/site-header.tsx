@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { getCurrentCompanySession } from "@/lib/company-session";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 
 export const SiteHeader = async () => {
     const session = await getCurrentCompanySession();
@@ -42,6 +43,7 @@ export const SiteHeader = async () => {
 
                         {/* Right: Actions */}
                         <div className="flex items-center gap-2 sm:gap-3">
+                            <ThemeToggleButton />
                             {/* <Link
                                 href="/referral"
                                 className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5 sm:inline-flex"
