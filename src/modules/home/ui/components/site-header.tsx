@@ -1,9 +1,15 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 
-export const SiteHeader = () => {
+import { getCurrentCompanySession } from "@/lib/company-session";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
+
+export const SiteHeader = async () => {
+    const session = await getCurrentCompanySession();
+    const isSignedIn = Boolean(session);
+    const primaryCtaHref = isSignedIn ? "/build" : "/access";
+    const primaryCtaLabel = isSignedIn ? "Try It Now" : "Get Access";
+
     return (
         <div className="fixed inset-x-0 top-0 z-50">
             <div className="mx-auto max-w-6xl px-3 sm:px-4">
@@ -17,39 +23,28 @@ export const SiteHeader = () => {
 
                         {/* Center: Nav */}
                         <nav className="hidden items-center gap-2 sm:gap-3 md:flex">
-                            <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                <span>Product</span>
-                                <svg width="14" height="14" viewBox="0 0 24 24" className="opacity-70" aria-hidden="true">
-                                    <path fill="currentColor" d="M7 10l5 5 5-5z" />
-                                </svg>
-                            </button>
-                            <Link href="/usage" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                Usage
+                            <Link href="/build" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                Build
                             </Link>
-                            <Link href="/blog" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                Blog
+                            {isSignedIn && (
+                                <Link href="/usage" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                    Usage
+                                </Link>
+                            )}
+                            {isSignedIn && (
+                                <Link href="/projects" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                    Projects
+                                </Link>
+                            )}
+                            <Link href="/contact" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                Contact
                             </Link>
-                            <a
-                                href="/docs"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
-                            >
-                                Docs
-                            </a>
-                            <a
-                                href="/forum"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
-                            >
-                                Forum
-                            </a>
                         </nav>
 
                         {/* Right: Actions */}
                         <div className="flex items-center gap-2 sm:gap-3">
-                            <Link
+                            <ThemeToggleButton />
+                            {/* <Link
                                 href="/referral"
                                 className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5 sm:inline-flex"
                             >
@@ -60,19 +55,19 @@ export const SiteHeader = () => {
                                     />
                                 </svg>
                                 <span>Try It Now</span>
-                            </Link>
-                            <Link
+                            </Link> */}
+                            {/* <Link
                                 href="/account"
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/5 transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
                             >
                                 <span className="sr-only">Account</span>
                                 <Image src="/logo.png" alt="avatar" width={20} height={20} className="rounded-full opacity-80" />
-                            </Link>
+                            </Link> */}
                             <Link
-                                href="/download"
+                                href={primaryCtaHref}
                                 className="inline-flex h-8 items-center gap-2 rounded-full border border-black/5 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 dark:bg-white dark:text-gray-900"
                             >
-                                <span>Download</span>
+                                <span>{primaryCtaLabel}</span>
                             </Link>
                         </div>
                     </div>

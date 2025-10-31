@@ -34,12 +34,12 @@ export const AdminDashboard = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-	const { data: companies } = useQuery(
-		trpc.companies.adminList.queryOptions(undefined, { staleTime: 10_000 }),
-	);
+  const { data: companies } = useQuery(
+    trpc.companies.adminList.queryOptions(undefined, { staleTime: 10_000 }),
+  );
 
-	const createForm = useForm<z.infer<typeof createSchema>>({
-		resolver: zodResolver(createSchema) as any,
+  const createForm = useForm<z.infer<typeof createSchema>>({
+    resolver: zodResolver(createSchema),
     defaultValues: {
       name: "",
       code: "",
