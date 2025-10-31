@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
+import { CreditBalanceIndicator } from "@/components/credit-balance-indicator";
 import { useRouter } from "next/navigation";
 import { PROJECT_TEMPLATES } from "@/modules/home/constants";
 
@@ -76,6 +77,7 @@ export const ProjectForm = () => {
     return (
         <Form {...form}>
             <section className="space-y-6">
+                <CreditBalanceIndicator />
                 <form
                     onSubmit={form.handleSubmit(onSubmit)}
                     className={cn(

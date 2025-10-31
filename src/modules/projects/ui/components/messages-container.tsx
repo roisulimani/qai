@@ -1,9 +1,12 @@
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+
+import { Fragment } from "@/generated/prisma";
+
+import { CreditBalanceIndicator } from "@/components/credit-balance-indicator";
 import { MessageCard } from "./message-card";
 import { MessageForm } from "./message-form";
-import { useEffect, useRef } from "react";
-import { Fragment } from "@/generated/prisma";
 import { MessageLoading } from "./message-loading";
 
 interface Props {
@@ -67,9 +70,11 @@ export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment
                 </div>
             </div>
             <div className="relative p-3 pt-1">
-                <div className="absolute -top-6 left-0 right-0 h-6 bg-gradient-to-b from-transparent
-                 to-background pointer-events-none"/>
-                <MessageForm projectId={projectId} />
+                <div className="absolute -top-6 left-0 right-0 h-6 bg-gradient-to-b from-transparent to-background pointer-events-none" />
+                <div className="space-y-2">
+                    <CreditBalanceIndicator className="bg-sidebar" />
+                    <MessageForm projectId={projectId} />
+                </div>
             </div>
         </div>
     );
