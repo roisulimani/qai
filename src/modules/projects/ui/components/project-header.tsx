@@ -27,7 +27,7 @@ export const ProjectHeader = ({ projectId }: Props) => {
     };
 
     return (
-        <header className="p-2 flex items-center justify-between border-b">
+        <header className="flex h-14 items-center justify-between border-b px-3">
             <div className="flex items-center gap-2">
                 <Image src="/logo.png" alt="QAI" width={30} height={30} />
                 <span className="text-sm font-medium">{project.name}</span>
