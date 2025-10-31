@@ -71,7 +71,10 @@ export const ProjectForm = () => {
 
     const [isFocused, setIsFocused] = useState(false);
     const isPending = createProject.isPending;
-    const hasCredits = (company?.creditBalance ?? 0) > 0;
+    const creditBalance = company?.creditBalance;
+    const isCreditBalanceKnown = typeof creditBalance === "number";
+    const hasCredits = isCreditBalanceKnown ? creditBalance > 0 : true;
+    const shouldShowOutOfCredits = !isCompanyLoading && isCreditBalanceKnown && !hasCredits;
     const isButtonDisabled = isPending || !form.formState.isValid || !hasCredits;
     
     return (
@@ -137,7 +140,7 @@ export const ProjectForm = () => {
                     </div>
                 </form>
 
-                {!hasCredits && (
+                {shouldShowOutOfCredits && (
                     <div className="rounded-xl border border-dashed border-destructive/50 bg-destructive/5 p-3 text-xs text-destructive">
                         You are out of credits. Reach out to Lior for more access to QAI.
                     </div>
