@@ -9,6 +9,7 @@ import { ArrowUpIcon, Loader2Icon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
+import { CreditBalanceIndicator } from "@/components/credit-balance-indicator";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
 import { useRouter } from "next/navigation";
@@ -25,7 +26,7 @@ export const ProjectForm = () => {
     const router = useRouter();
     const trpc = useTRPC();
     const queryClient = useQueryClient();
-    const { data: company } = useQuery(
+    const { data: company, isLoading: isCompanyLoading } = useQuery(
         trpc.companies.getCurrent.queryOptions(undefined, { staleTime: 10_000 }),
     );
     const form = useForm<z.infer<typeof formSchema>>({
@@ -75,7 +76,7 @@ export const ProjectForm = () => {
     
     return (
         <Form {...form}>
-            <section className="space-y-6">
+            <section className="space-y-4">
                 <form
                     onSubmit={form.handleSubmit(onSubmit)}
                     className={cn(
@@ -87,46 +88,52 @@ export const ProjectForm = () => {
                         control={form.control}
                         name="message"
                         render={({ field }) => (
-                            <TextareaAutosize 
-                            {...field}
-                            disabled={isPending}
-                            onFocus={() => setIsFocused(true)}
-                            onBlur={() => setIsFocused(false)}
-                            minRows={2}
-                            maxRows={8}
-                            className="pt-4 resize-none border-none w-full outline-none bg-transparent"
-                            placeholder="What do you want to build?"
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
-                                    e.preventDefault();
-                                    form.handleSubmit(onSubmit)(e);
-                                }
-                            }}
+                            <TextareaAutosize
+                                {...field}
+                                disabled={isPending}
+                                onFocus={() => setIsFocused(true)}
+                                onBlur={() => setIsFocused(false)}
+                                minRows={2}
+                                maxRows={8}
+                                className="pt-4 resize-none border-none w-full outline-none bg-transparent"
+                                placeholder="What do you want to build?"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
+                                        e.preventDefault();
+                                        form.handleSubmit(onSubmit)(e);
+                                    }
+                                }}
                             />
                         )}
                     />
-                    <div className="flex gap-x-2 items-end justify-between pt-2">
-                        <div className="text-[10px] text-muted-foreground font-mono">
-                            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center
-                            gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                                <span>&#8984;</span>Enter
-                            </kbd>
-                            &nbsp;to submit
+                    <div className="mt-4 flex flex-col gap-3 border-t border-white/40 pt-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                        <CreditBalanceIndicator
+                            variant="inline"
+                            balance={company?.creditBalance}
+                            isLoading={isCompanyLoading}
+                        />
+                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:justify-end">
+                            <div className="text-[10px] font-mono text-muted-foreground">
+                                <kbd className="ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                                    <span>&#8984;</span>Enter
+                                </kbd>
+                                &nbsp;to submit
+                            </div>
+                            <Button
+                                type="submit"
+                                disabled={isButtonDisabled}
+                                className={cn(
+                                    "size-8 rounded-full",
+                                    isButtonDisabled && "cursor-not-allowed opacity-50",
+                                )}
+                            >
+                                {isPending ? (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                ) : (
+                                    <ArrowUpIcon className="size-4" />
+                                )}
+                            </Button>
                         </div>
-                        <Button
-                            type="submit"
-                            disabled={isButtonDisabled}
-                            className={cn(
-                                "size-8 rounded-full",
-                                isButtonDisabled && "opacity-50 cursor-not-allowed",
-                            )}
-                        >
-                            {isPending ? (
-                                <Loader2Icon className="size-4 animate-spin" />
-                            ) : (
-                                <ArrowUpIcon className="size-4" />
-                            )}
-                        </Button>
                     </div>
                 </form>
 
