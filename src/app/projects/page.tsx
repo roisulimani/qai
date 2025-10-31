@@ -1,13 +1,53 @@
-import { SiteHeader } from "@/modules/home/ui/components/site-header";
+import { formatDistanceToNow } from "date-fns";
+
 import { ProjectsList } from "@/modules/home/ui/components/projects-list";
+import { SiteHeader } from "@/modules/home/ui/components/site-header";
+import { getCaller } from "@/trpc/server";
 
-const stats = [
-    { label: "Active projects", value: "12", delta: "+3 this month" },
-    { label: "Automations shipped", value: "48", delta: "Up 18%" },
-    { label: "Team collaborators", value: "27", delta: "5 new invites" },
-];
+const formatMonthlyDelta = (count: number) => {
+    if (count === 0) {
+        return "No builds this month";
+    }
 
-const ProjectsPage = () => {
+    return `+${count} this month`;
+};
+
+const formatAverageFragments = (totalFragments: number, totalProjects: number) => {
+    if (totalFragments === 0 || totalProjects === 0) {
+        return "Awaiting insights";
+    }
+
+    const average = totalFragments / totalProjects;
+    const formatted = average % 1 === 0 ? average.toString() : average.toFixed(1);
+    return `${formatted} avg / project`;
+};
+
+const ProjectsPage = async () => {
+    const caller = await getCaller();
+    const overview = await caller.projects.getOverview();
+
+    const latestUpdate = overview.latestProject?.createdAt
+        ? `Latest build ${formatDistanceToNow(overview.latestProject.createdAt, { addSuffix: true })}`
+        : "Run your first build";
+
+    const stats = [
+        {
+            label: "Projects in workspace",
+            value: overview.totalProjects.toLocaleString(),
+            delta: formatMonthlyDelta(overview.projectsThisMonth),
+        },
+        {
+            label: "Iterations logged",
+            value: overview.totalMessages.toLocaleString(),
+            delta: latestUpdate,
+        },
+        {
+            label: "Fragments generated",
+            value: overview.totalFragments.toLocaleString(),
+            delta: formatAverageFragments(overview.totalFragments, overview.totalProjects),
+        },
+    ];
+
     return (
         <div className="min-h-screen w-full bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.45),_transparent_65%)] pb-16 dark:bg-[radial-gradient(circle_at_top,_rgba(24,24,27,0.65),_transparent_55%)]">
             <SiteHeader />

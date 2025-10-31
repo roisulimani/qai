@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
-
-import { companyProcedure, createTRPCRouter } from "@/trpc/init";
+import { startOfMonth } from "date-fns";
 import { z } from "zod";
+
 import { prisma } from "@/lib/db";
+import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
+import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { inngest } from '@/inngest/client';
 import { generateSlug } from "random-word-slugs";
-import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -42,6 +43,60 @@ export const projectsRouter = createTRPCRouter({
             },
         });
         return projects;
+    }),
+
+    getOverview: companyProcedure.query(async ({ ctx }) => {
+        const monthStart = startOfMonth(new Date());
+
+        const [
+            totalProjects,
+            projectsThisMonth,
+            totalMessages,
+            totalFragments,
+            latestProject,
+        ] = await prisma.$transaction([
+            prisma.project.count({
+                where: { companyId: ctx.company.id },
+            }),
+            prisma.project.count({
+                where: {
+                    companyId: ctx.company.id,
+                    createdAt: { gte: monthStart },
+                },
+            }),
+            prisma.message.count({
+                where: {
+                    project: {
+                        companyId: ctx.company.id,
+                    },
+                },
+            }),
+            prisma.fragment.count({
+                where: {
+                    message: {
+                        project: {
+                            companyId: ctx.company.id,
+                        },
+                    },
+                },
+            }),
+            prisma.project.findFirst({
+                where: { companyId: ctx.company.id },
+                orderBy: { createdAt: "desc" },
+                select: {
+                    name: true,
+                    createdAt: true,
+                },
+            }),
+        ]);
+
+        return {
+            totalProjects,
+            projectsThisMonth,
+            totalMessages,
+            totalFragments,
+            latestProject,
+        };
     }),
 
     create: companyProcedure
