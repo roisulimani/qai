@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ChevronLeftIcon, SunMoonIcon } from "lucide-react";
+import { HomeIcon, SunMoonIcon } from "lucide-react";
 
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,8 @@ export const ProjectHeader = ({ projectId }: Props) => {
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
                 <Button asChild variant="ghost" size="icon" className="hover:bg-transparent">
-                    <Link href="/" aria-label="Go to Dashboard">
-                        <ChevronLeftIcon className="size-4" />
+                    <Link href="/" aria-label="Go to Home">
+                        <HomeIcon className="size-4" />
                     </Link>
                 </Button>
                 <Separator orientation="vertical" className="h-6" />
