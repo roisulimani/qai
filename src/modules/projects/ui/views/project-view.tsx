@@ -15,6 +15,44 @@ import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileExplorer } from "@/components/file-explorer";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const ProjectViewHeaderFallback = () => (
+    <div className="border-b border-border px-4 py-4">
+        <div className="flex items-center gap-4">
+            <Skeleton className="size-12 rounded-full" />
+            <div className="flex flex-1 flex-col gap-2">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/2" />
+            </div>
+            <div className="flex gap-2">
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-8 w-8" />
+            </div>
+        </div>
+    </div>
+);
+
+const MessagesContainerFallback = () => (
+    <div className="flex flex-1 flex-col gap-4 overflow-hidden px-4 py-6">
+        <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+            {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="flex gap-3">
+                    <Skeleton className="size-8 rounded-full" />
+                    <div className="flex flex-1 flex-col gap-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
 
 interface Props {
     projectId: string;
@@ -31,11 +69,11 @@ export const ProjectView = ({ projectId }: Props) => {
                     minSize={20}
                     className="flex flex-col min-h-0"
                 >
-                    <Suspense fallback={<div>Loading project...</div>}>
+                    <Suspense fallback={<ProjectViewHeaderFallback />}>
                         <ProjectHeader projectId={projectId} />
                     </Suspense>
-                    <Suspense fallback={<div>Loading messages...</div>}>
-                        <MessagesContainer 
+                    <Suspense fallback={<MessagesContainerFallback />}>
+                        <MessagesContainer
                             projectId={projectId}
                             activeFragment={activeFragment}
                             setActiveFragment={setActiveFragment}
