@@ -24,10 +24,10 @@ export const CreditBalanceIndicator = ({
 }: CreditBalanceIndicatorProps) => {
     const trpc = useTRPC();
     const shouldFetch = balanceProp === undefined;
-    const { data, isLoading: queryLoading } = useQuery(
-        trpc.companies.getCurrent.queryOptions(undefined, { staleTime: 10_000 }),
-        { enabled: shouldFetch },
-    );
+    const { data, isLoading: queryLoading } = useQuery({
+        ...trpc.companies.getCurrent.queryOptions(undefined, { staleTime: 10_000 }),
+        enabled: shouldFetch,
+    });
 
     const balance = balanceProp ?? data?.creditBalance ?? 0;
     const isLoading = loadingProp ?? (shouldFetch ? queryLoading : false);
