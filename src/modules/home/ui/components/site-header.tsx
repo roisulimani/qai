@@ -17,39 +17,23 @@ export const SiteHeader = () => {
 
                         {/* Center: Nav */}
                         <nav className="hidden items-center gap-2 sm:gap-3 md:flex">
-                            <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                <span>Product</span>
-                                <svg width="14" height="14" viewBox="0 0 24 24" className="opacity-70" aria-hidden="true">
-                                    <path fill="currentColor" d="M7 10l5 5 5-5z" />
-                                </svg>
-                            </button>
+                            <Link href="/build" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                Build
+                            </Link>
                             <Link href="/usage" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
                                 Usage
                             </Link>
-                            <Link href="/blog" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
-                                Blog
+                            <Link href="/projects" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                Projects
                             </Link>
-                            <a
-                                href="/docs"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
-                            >
-                                Docs
-                            </a>
-                            <a
-                                href="/forum"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
-                            >
-                                Forum
-                            </a>
+                            <Link href="/contact" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                Contact
+                            </Link>
                         </nav>
 
                         {/* Right: Actions */}
                         <div className="flex items-center gap-2 sm:gap-3">
-                            <Link
+                            {/* <Link
                                 href="/referral"
                                 className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5 sm:inline-flex"
                             >
@@ -60,19 +44,19 @@ export const SiteHeader = () => {
                                     />
                                 </svg>
                                 <span>Try It Now</span>
-                            </Link>
-                            <Link
+                            </Link> */}
+                            {/* <Link
                                 href="/account"
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/5 transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
                             >
                                 <span className="sr-only">Account</span>
                                 <Image src="/logo.png" alt="avatar" width={20} height={20} className="rounded-full opacity-80" />
-                            </Link>
+                            </Link> */}
                             <Link
-                                href="/download"
+                                href="/try-it-now"
                                 className="inline-flex h-8 items-center gap-2 rounded-full border border-black/5 bg-white px-3 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 dark:bg-white dark:text-gray-900"
                             >
-                                <span>Download</span>
+                                <span>Try It Now</span>
                             </Link>
                         </div>
                     </div>
