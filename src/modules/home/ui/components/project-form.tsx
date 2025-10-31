@@ -84,36 +84,6 @@ export const ProjectForm = () => {
                         isFocused && "ring-1 ring-black/5 dark:ring-white/10",
                     )}
                 >
-                    <div className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
-                        <CreditBalanceIndicator
-                            variant="inline"
-                            balance={company?.creditBalance}
-                            isLoading={isCompanyLoading}
-                        />
-                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:justify-end">
-                            <div className="text-[10px] text-muted-foreground font-mono">
-                                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center
-                                gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                                    <span>&#8984;</span>Enter
-                                </kbd>
-                                &nbsp;to submit
-                            </div>
-                            <Button
-                                type="submit"
-                                disabled={isButtonDisabled}
-                                className={cn(
-                                    "size-8 rounded-full",
-                                    isButtonDisabled && "opacity-50 cursor-not-allowed",
-                                )}
-                            >
-                                {isPending ? (
-                                    <Loader2Icon className="size-4 animate-spin" />
-                                ) : (
-                                    <ArrowUpIcon className="size-4" />
-                                )}
-                            </Button>
-                        </div>
-                    </div>
                     <FormField
                         control={form.control}
                         name="message"
@@ -136,6 +106,35 @@ export const ProjectForm = () => {
                             />
                         )}
                     />
+                    <div className="mt-4 flex flex-col gap-3 border-t border-white/40 pt-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                        <CreditBalanceIndicator
+                            variant="inline"
+                            balance={company?.creditBalance}
+                            isLoading={isCompanyLoading}
+                        />
+                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:justify-end">
+                            <div className="text-[10px] font-mono text-muted-foreground">
+                                <kbd className="ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                                    <span>&#8984;</span>Enter
+                                </kbd>
+                                &nbsp;to submit
+                            </div>
+                            <Button
+                                type="submit"
+                                disabled={isButtonDisabled}
+                                className={cn(
+                                    "size-8 rounded-full",
+                                    isButtonDisabled && "cursor-not-allowed opacity-50",
+                                )}
+                            >
+                                {isPending ? (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                ) : (
+                                    <ArrowUpIcon className="size-4" />
+                                )}
+                            </Button>
+                        </div>
+                    </div>
                 </form>
 
                 {!hasCredits && (
