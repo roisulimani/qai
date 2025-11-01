@@ -166,8 +166,6 @@ export function HeroSplineSection({ onProgressChange }: HeroSplineSectionProps) 
     return (
         <section ref={heroRef} className="relative isolate min-h-[220vh]">
             <div ref={stickyRef} className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 -z-10 bg-neutral-950" aria-hidden />
-
                 <div className="pointer-events-none absolute inset-0 -z-10">
                     {shouldRenderSpline && viewerReady ? (
                         <spline-viewer
@@ -181,13 +179,13 @@ export function HeroSplineSection({ onProgressChange }: HeroSplineSectionProps) 
                     )}
                     <div
                         className="absolute inset-0 bg-[linear-gradient(180deg,_rgba(5,7,11,0.45)_0%,_rgba(5,7,11,0.8)_55%,_rgba(7,12,26,0.95)_100%)] transition-opacity duration-700"
-                        style={{ opacity: sceneLoaded ? 1 : 0.75 }}
+                        style={{ opacity: sceneLoaded ? 0.35 : 0.75 }}
                     />
                 </div>
 
                 <div
                     className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(86,112,255,0.25),_transparent_65%)] blur-3xl transition-opacity duration-700"
-                    style={{ opacity: 1 - heroOverlayOpacity * 0.6 }}
+                    style={{ opacity: Math.max(0.1, 1 - heroOverlayOpacity * 0.6) }}
                 />
 
                 <div

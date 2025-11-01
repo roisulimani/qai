@@ -42,13 +42,13 @@ const roadmap = [
 
 const LandingPage = () => {
     return (
-        <div className="relative min-h-screen overflow-hidden bg-neutral-950 text-white">
+        <div className="relative min-h-screen overflow-hidden text-white">
             <SiteHeader />
 
             <main className="relative flex flex-col">
                 <HeroSplineSection />
 
-                <section className="relative z-10 -mt-32 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_60%)] px-6 pb-24 pt-32 sm:px-10">
+                <section className="relative z-10 -mt-32 px-6 pb-24 pt-32 sm:px-10">
                     <div className="mx-auto flex w-full max-w-6xl flex-col gap-16">
                         <div className="grid gap-12 rounded-[3rem] border border-white/10 bg-white/5 p-10 shadow-[0_40px_140px_-60px_rgba(99,102,241,0.6)] backdrop-blur-xl sm:p-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
                             <div className="space-y-6">
@@ -116,7 +116,7 @@ const LandingPage = () => {
                     </div>
                 </section>
 
-                <section className="relative z-10 flex flex-col gap-16 bg-[linear-gradient(180deg,_rgba(15,23,42,1)_0%,_rgba(30,41,59,1)_35%,_rgba(24,24,35,1)_100%)] px-6 py-24 sm:px-10">
+                <section className="relative z-10 flex flex-col gap-16 px-6 py-24 sm:px-10">
                     <div className="mx-auto flex w-full max-w-6xl flex-col gap-16">
                         <div className="grid gap-8 lg:grid-cols-4 lg:items-start">
                             <div className="lg:col-span-2">
@@ -195,7 +195,7 @@ const LandingPage = () => {
                     </div>
                 </section>
 
-                <section className="relative z-10 bg-[radial-gradient(circle_at_top,_rgba(236,72,153,0.25),_transparent_65%)] px-6 py-24 sm:px-10">
+                <section className="relative z-10 px-6 py-24 sm:px-10">
                     <div className="mx-auto flex w-full max-w-6xl flex-col gap-16">
                         <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
                             <div className="space-y-6">
