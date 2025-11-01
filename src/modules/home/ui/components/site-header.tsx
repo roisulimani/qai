@@ -23,6 +23,9 @@ export const SiteHeader = async () => {
 
                         {/* Center: Nav */}
                         <nav className="hidden items-center gap-2 sm:gap-3 md:flex">
+                            <Link href="/home-2" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
+                                Home 2
+                            </Link>
                             <Link href="/build" className="rounded-full px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/5">
                                 Build
                             </Link>
