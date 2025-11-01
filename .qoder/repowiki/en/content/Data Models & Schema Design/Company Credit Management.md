@@ -15,15 +15,17 @@
 - [route.ts](file://src/app/api/auth/login/route.ts)
 - [page.tsx](file://src/app/usage/page.tsx) - *Added in recent commit*
 - [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx) - *Refactored for usage page*
+- [request-more-credits-button.tsx](file://src/components/request-more-credits-button.tsx) - *Added for credit request functionality*
+- [email.ts](file://src/lib/email.ts) - *Added notification system for administrators*
 </cite>
 
 ## Update Summary
 **Changes Made**   
-- Added new section: "Dedicated Usage Page" to document the newly created `/usage` page
-- Updated "User Interface Components" section to reflect the refactored `SiteHeader` component
-- Added references to new and modified files in document, section, and diagram sources
+- Added new section: "Credit Request and Notification System" to document the newly implemented credit request functionality and admin notification system
+- Added references to new files: `request-more-credits-button.tsx` and `email.ts` in document, section, and diagram sources
+- Updated "User Interface Components" section to include the new RequestMoreCreditsButton component
+- Enhanced source tracking with annotations for recently added files related to credit requests and notifications
 - Updated table of contents to include new section
-- Enhanced source tracking with annotations for recently added or modified files
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,7 +39,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-The Company Credit Management system is a comprehensive solution for managing access and usage credits for companies using the QAI platform. The system enables administrators to create company accounts with access codes, allocate initial credits, and monitor credit usage across projects and messages. Companies consume credits when creating projects and sending messages, with real-time tracking and transaction logging. The system includes both administrative interfaces for managing companies and user-facing components for displaying credit usage. Recently, a dedicated usage page has been added to provide a centralized view of company statistics and credit information.
+The Company Credit Management system is a comprehensive solution for managing access and usage credits for companies using the QAI platform. The system enables administrators to create company accounts with access codes, allocate initial credits, and monitor credit usage across projects and messages. Companies consume credits when creating projects and sending messages, with real-time tracking and transaction logging. The system includes both administrative interfaces for managing companies and user-facing components for displaying credit usage. Recently, a dedicated usage page has been added to provide a centralized view of company statistics and credit information. Additionally, the system has been enhanced with a credit request functionality that allows companies to request additional credits, triggering notifications to administrators via email.
 
 ## Project Structure
 The credit management system is organized across several key directories in the application:
@@ -45,9 +47,10 @@ The credit management system is organized across several key directories in the 
 - `src/modules/companies/server/`: Contains core credit management logic including credit spending and company procedures
 - `src/modules/admin/ui/`: Admin dashboard components for managing companies and granting credits
 - `src/modules/home/ui/components/`: User-facing components for displaying credit usage
-- `src/lib/`: Shared utilities for authentication, database access, and environment configuration
+- `src/lib/`: Shared utilities for authentication, database access, environment configuration, and email notifications
 - `src/modules/projects/server/` and `src/modules/messages/server/`: Procedures that consume credits when creating projects and messages
 - `src/app/usage/`: New dedicated page for company usage statistics and credit tracking
+- `src/components/`: Shared UI components including the new credit request button
 
 ```mermaid
 graph TB
@@ -71,31 +74,38 @@ subgraph "Data Layer"
 M[Prisma DB] --> N[Company Table]
 M --> O[CreditTransaction Table]
 end
+subgraph "Notification System"
+P[Credit Request] --> Q[Send Email]
+Q --> R[Admin Notification]
+end
 A --> E
 E --> M
 I --> E
 K --> E
+P --> Q
 ```
 
 **Diagram sources**
 - [admin-dashboard.tsx](file://src/modules/admin/ui/admin-dashboard.tsx)
 - [credits.ts](file://src/modules/companies/server/credits.ts)
 - [procedures.ts](file://src/modules/companies/server/procedures.ts)
+- [email.ts](file://src/lib/email.ts) - *Added notification system*
 
 **Section sources**
 - [src/modules](file://src/modules)
 - [src/lib](file://src/lib)
 
 ## Core Components
-The credit management system consists of several core components that work together to provide a complete solution for company access and credit tracking. The system is built around a transactional model that ensures data consistency when spending or granting credits. Key components include the credit spending mechanism, company management procedures, administrative interfaces, and user-facing usage displays. The system uses environment variables to configure credit costs and security secrets, providing flexibility for different deployment environments.
+The credit management system consists of several core components that work together to provide a complete solution for company access and credit tracking. The system is built around a transactional model that ensures data consistency when spending or granting credits. Key components include the credit spending mechanism, company management procedures, administrative interfaces, user-facing usage displays, and a new credit request and notification system. The system uses environment variables to configure credit costs and security secrets, providing flexibility for different deployment environments. The notification system leverages email services to alert administrators when companies request additional credits.
 
 **Section sources**
 - [credits.ts](file://src/modules/companies/server/credits.ts)
 - [procedures.ts](file://src/modules/companies/server/procedures.ts)
 - [env.ts](file://src/lib/env.ts)
+- [email.ts](file://src/lib/email.ts) - *Added for notification functionality*
 
 ## Architecture Overview
-The Company Credit Management system follows a layered architecture with clear separation of concerns between the presentation, business logic, and data access layers. The system uses tRPC for type-safe API endpoints, Prisma for database access, and React for both server-side and client-side rendering. Credit transactions are handled within database transactions to ensure atomicity and consistency. The architecture supports both administrative operations (creating companies, granting credits) and user operations (creating projects, sending messages that consume credits).
+The Company Credit Management system follows a layered architecture with clear separation of concerns between the presentation, business logic, and data access layers. The system uses tRPC for type-safe API endpoints, Prisma for database access, and React for both server-side and client-side rendering. Credit transactions are handled within database transactions to ensure atomicity and consistency. The architecture supports both administrative operations (creating companies, granting credits) and user operations (creating projects, sending messages that consume credits). A new notification layer has been added to handle credit requests from companies, which triggers email notifications to administrators for review and action.
 
 ```mermaid
 graph TD
@@ -107,6 +117,7 @@ A1[Admin Dashboard]
 A2[Company Usage]
 A3[Access Form]
 A4[Usage Page]
+A5[Request Credits Button]
 end
 subgraph "API Layer"
 B1[Admin Endpoints]
@@ -117,6 +128,7 @@ subgraph "Business Logic"
 C1[Credit Management]
 C2[Session Management]
 C3[Company Management]
+C4[Email Notification]
 end
 subgraph "Data Layer"
 D1[Prisma ORM]
@@ -126,12 +138,15 @@ A1 --> B1
 A2 --> B3
 A3 --> B2
 A4 --> B3
+A5 --> B3
 B1 --> C3
 B2 --> C2
 B3 --> C1
+B3 --> C4
 C1 --> D1
 C2 --> D1
 C3 --> D1
+C4 --> D1
 D1 --> D2
 ```
 
@@ -141,6 +156,7 @@ D1 --> D2
 - [credits.ts](file://src/modules/companies/server/credits.ts)
 - [procedures.ts](file://src/modules/companies/server/procedures.ts)
 - [page.tsx](file://src/app/usage/page.tsx) - *Added in recent commit*
+- [email.ts](file://src/lib/email.ts) - *Added notification system*
 
 ## Detailed Component Analysis
 
@@ -255,46 +271,39 @@ style G fill:#E8F5E8
 - [company-usage.tsx](file://src/modules/home/ui/components/company-usage.tsx#L1-L70)
 - [admin-dashboard.tsx](file://src/modules/admin/ui/admin-dashboard.tsx#L1-L308)
 
-### Dedicated Usage Page
-A new dedicated usage page has been implemented to provide a comprehensive view of company statistics and credit information. The page at `/usage` displays key metrics including credits remaining, projects built, and credits used. It utilizes a reusable `SiteHeader` component that has been refactored for consistent navigation across the application.
+### Credit Request and Notification System
+A new credit request functionality has been implemented to allow companies to request additional credits when needed. When a company submits a credit request, the system triggers a notification to administrators via email, providing detailed information about the company's current status and credit usage. This system consists of a frontend button component, a backend API endpoint, and an email notification service.
 
-The usage page features:
-- Company performance overview with visual hierarchy
-- Quick action links for common tasks
-- Company usage summary component showing real-time credit data
-- Projects list component displaying all company projects
-- Responsive design with radial background gradient
-
+#### Credit Request Flow
 ```mermaid
-flowchart TD
-A[UsagePage] --> B[SiteHeader]
-A --> C[Usage Overview Banner]
-A --> D[CompanyUsageSummary]
-A --> E[ProjectsList]
-B --> F[Navigation Links]
-C --> G[Performance Headline]
-C --> H[Quick Action Links]
-D --> I[Company Info]
-D --> J[Credits Remaining]
-D --> K[Projects Built]
-D --> L[Credits Used]
-E --> M[Project Cards]
-style A fill:#2196F3,stroke:#1976D2
-style D fill:#4CAF50,stroke:#388E3C
-style E fill:#FF9800,stroke:#F57C00
+sequenceDiagram
+participant User as "Company User"
+participant UI as "RequestMoreCreditsButton"
+participant API as "tRPC API"
+participant Email as "Email Service"
+participant Admin as "Administrator"
+User->>UI : Click "Request more credits"
+UI->>API : requestMoreCredits mutation
+API->>DB : Fetch company details
+DB-->>API : Company data
+API->>DB : Fetch recent project data
+DB-->>API : Project data
+API->>Email : sendCreditRequestEmail
+Email->>Admin : Send notification email
+Email-->>API : Confirmation
+API-->>UI : Success response
+UI->>User : Show "Request sent" message
 ```
 
 **Diagram sources**
-- [page.tsx](file://src/app/usage/page.tsx#L1-L107) - *Added in recent commit*
-- [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx#L1-L85) - *Refactored for usage page*
-- [company-usage.tsx](file://src/modules/home/ui/components/company-usage.tsx#L1-L69)
-- [projects-list.tsx](file://src/modules/home/ui/components/projects-list.tsx#L1-L59)
+- [request-more-credits-button.tsx](file://src/components/request-more-credits-button.tsx#L1-L75) - *Added for credit request functionality*
+- [procedures.ts](file://src/modules/companies/server/procedures.ts#L188-L234) - *Added requestMoreCredits endpoint*
+- [email.ts](file://src/lib/email.ts#L75-L118) - *Added notification system*
 
 **Section sources**
-- [page.tsx](file://src/app/usage/page.tsx#L1-L107) - *Added in recent commit*
-- [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx#L1-L85) - *Refactored for usage page*
-- [company-usage.tsx](file://src/modules/home/ui/components/company-usage.tsx#L1-L69)
-- [projects-list.tsx](file://src/modules/home/ui/components/projects-list.tsx#L1-L59)
+- [request-more-credits-button.tsx](file://src/components/request-more-credits-button.tsx#L1-L75) - *Added for credit request functionality*
+- [procedures.ts](file://src/modules/companies/server/procedures.ts#L188-L234) - *Added requestMoreCredits endpoint*
+- [email.ts](file://src/lib/email.ts#L75-L118) - *Added notification system*
 
 ## Dependency Analysis
 The credit management system has a well-defined dependency structure that ensures separation of concerns while maintaining necessary connections between components. The system relies on several key dependencies for its functionality.
@@ -318,6 +327,9 @@ R --> U[prisma.creditTransaction.create]
 V[Usage Page] --> W[SiteHeader]
 V --> X[CompanyUsageSummary]
 V --> Y[ProjectsList]
+Z[RequestMoreCreditsButton] --> AA[companies.requestMoreCredits]
+AA --> AB[sendCreditRequestEmail]
+AB --> AC[Resend Email API]
 ```
 
 **Diagram sources**
@@ -326,9 +338,11 @@ V --> Y[ProjectsList]
 - [credits.ts](file://src/modules/companies/server/credits.ts)
 - [page.tsx](file://src/app/usage/page.tsx) - *Added in recent commit*
 - [site-header.tsx](file://src/modules/home/ui/components/site-header.tsx) - *Refactored for usage page*
+- [request-more-credits-button.tsx](file://src/components/request-more-credits-button.tsx) - *Added for credit request functionality*
+- [email.ts](file://src/lib/email.ts) - *Added notification system*
 
 ## Performance Considerations
-The credit management system is designed with performance in mind, using database transactions for atomic operations and efficient queries for data retrieval. The system implements caching through React's cache mechanism for company sessions, reducing database load for frequently accessed data. Database indexes are properly configured on key fields such as codeHash and token to ensure fast lookups. The use of tRPC with query options allows for effective client-side caching and data synchronization, minimizing unnecessary API calls. The new usage page implements React Query for efficient data fetching and caching of company statistics.
+The credit management system is designed with performance in mind, using database transactions for atomic operations and efficient queries for data retrieval. The system implements caching through React's cache mechanism for company sessions, reducing database load for frequently accessed data. Database indexes are properly configured on key fields such as codeHash and token to ensure fast lookups. The use of tRPC with query options allows for effective client-side caching and data synchronization, minimizing unnecessary API calls. The new usage page implements React Query for efficient data fetching and caching of company statistics. The credit request system is designed to be lightweight, with the email notification handled asynchronously to avoid blocking the main request flow.
 
 ## Troubleshooting Guide
 When encountering issues with the credit management system, consider the following common problems and solutions:
@@ -337,6 +351,7 @@ When encountering issues with the credit management system, consider the followi
 - [credits.ts](file://src/modules/companies/server/credits.ts#L30-L45)
 - [auth.ts](file://src/lib/auth.ts#L50-L70)
 - [procedures.ts](file://src/modules/companies/server/procedures.ts#L20-L30)
+- [email.ts](file://src/lib/email.ts#L10-L25) - *Added for email configuration issues*
 
 ## Conclusion
-The Company Credit Management system provides a robust solution for managing company access and credit usage within the QAI platform. The system's architecture ensures data consistency through transactional operations while providing a flexible interface for both administrators and end users. Key features include secure authentication, real-time credit tracking, and comprehensive administrative controls. The recent addition of a dedicated usage page with company statistics and the refactoring of the header into a reusable component enhance the user experience by providing a centralized view of credit information including credits remaining, projects built, and credits used. The modular design allows for easy extension and maintenance, with clear separation between different functional areas. The system effectively balances security, performance, and usability to support the platform's business requirements.
+The Company Credit Management system provides a robust solution for managing company access and credit usage within the QAI platform. The system's architecture ensures data consistency through transactional operations while providing a flexible interface for both administrators and end users. Key features include secure authentication, real-time credit tracking, comprehensive administrative controls, and a new credit request and notification system. The recent addition of a dedicated usage page with company statistics and the refactoring of the header into a reusable component enhance the user experience by providing a centralized view of credit information including credits remaining, projects built, and credits used. The new credit request functionality allows companies to easily request additional credits, with automated email notifications sent to administrators containing detailed company information for review. The modular design allows for easy extension and maintenance, with clear separation between different functional areas. The system effectively balances security, performance, and usability to support the platform's business requirements.
