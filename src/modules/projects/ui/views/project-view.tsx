@@ -11,6 +11,7 @@ import { MessagesContainer } from "@/modules/projects/ui/components/messages-con
 import { Suspense, useState } from "react";
 import { ProjectHeader } from "../components/project-header";
 import { FragmentWeb } from "../components/fragment-web";
+import { ProjectOnboarding } from "../components/project-onboarding";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -63,6 +64,7 @@ export const ProjectView = ({ projectId }: Props) => {
 
     return (
         <div className="h-screen">
+            <ProjectOnboarding />
             <ResizablePanelGroup direction="horizontal">
                 <ResizablePanel
                     defaultSize={35}
