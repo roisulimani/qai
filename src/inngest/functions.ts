@@ -9,7 +9,7 @@ import {
 import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import { getSandbox, lastAssistantTextMessageContent } from "./utils";
-import { PROMPT } from "@/prompt";
+import { buildSystemPrompt } from "@/prompt";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
@@ -34,11 +34,27 @@ export const codeAgentFunction = inngest.createFunction(
       messages,
       latestFragment,
       latestUserMessage,
+      promptContext,
     } = await step.run("load-conversation-context", async () => {
       return await loadProjectConversationContext(event.data.projectId);
     });
 
     const latestFragmentFiles = toFileRecord(latestFragment?.files);
+
+    const systemPrompt = buildSystemPrompt({
+      latestSummary: projectSummary,
+      projectName: promptContext.projectName,
+      companyName: promptContext.companyName,
+      companyCodeLabel: promptContext.companyCodeLabel,
+      constraints: dedupeStrings([
+        ...promptContext.companyPreferences.constraints,
+        ...promptContext.projectPreferences.constraints,
+      ]),
+      styleNotes: dedupeStrings([
+        ...promptContext.companyPreferences.styleNotes,
+        ...promptContext.projectPreferences.styleNotes,
+      ]),
+    });
 
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("qai-nextjs-t4");
@@ -56,7 +72,7 @@ export const codeAgentFunction = inngest.createFunction(
     // Create a new agent with a system prompt
     const codeAgent = createAgent<AgentState>({
       name: "codeAgent",
-      system: PROMPT,
+      system: systemPrompt,
       model: openai({ 
         model: "gpt-4.1",
         defaultParameters: {
@@ -286,4 +302,25 @@ function toFileRecord(
     },
     {},
   );
+}
+
+function dedupeStrings(values: (string | undefined | null)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+
+  return result;
 }

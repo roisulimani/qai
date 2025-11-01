@@ -3,11 +3,25 @@ import { prisma } from "@/lib/db";
 
 type MessageWithFragment = Message & { fragment: Fragment | null };
 
+export interface PromptPreferenceSet {
+  constraints: string[];
+  styleNotes: string[];
+}
+
+export interface ProjectPromptContext {
+  projectName: string | null;
+  companyName: string | null;
+  companyCodeLabel: string | null;
+  projectPreferences: PromptPreferenceSet;
+  companyPreferences: PromptPreferenceSet;
+}
+
 interface LoadConversationContextResult {
   projectSummary: string | null;
   messages: MessageWithFragment[];
   latestFragment: Fragment | null;
   latestUserMessage: Message | null;
+  promptContext: ProjectPromptContext;
 }
 
 const DEFAULT_HISTORY_CHAR_LIMIT = 6000;
@@ -20,7 +34,14 @@ export async function loadProjectConversationContext(
   const [project, messages] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
-      select: { conversationSummary: true },
+      include: {
+        company: {
+          select: {
+            name: true,
+            codeLabel: true,
+          },
+        },
+      },
     }),
     prisma.message.findMany({
       where: { projectId },
@@ -38,11 +59,20 @@ export async function loadProjectConversationContext(
     .reverse()
     .find((message) => message.role === "USER") ?? null;
 
+  const promptContext: ProjectPromptContext = {
+    projectName: project?.name ?? null,
+    companyName: project?.company?.name ?? null,
+    companyCodeLabel: project?.company?.codeLabel ?? null,
+    projectPreferences: deriveProjectPreferences(project),
+    companyPreferences: deriveCompanyPreferences(project?.company ?? null),
+  };
+
   return {
     projectSummary: project?.conversationSummary ?? null,
     messages,
     latestFragment,
     latestUserMessage,
+    promptContext,
   };
 }
 
@@ -176,4 +206,46 @@ function collapseWhitespace(input: string): string {
 
 function stripXmlLikeTags(input: string): string {
   return input.replace(/<[^>]+>/g, " ").trim();
+}
+
+function deriveProjectPreferences(
+  project: { name: string | null } | null,
+): PromptPreferenceSet {
+  const constraints: string[] = [];
+  const styleNotes: string[] = [];
+
+  if (project?.name) {
+    styleNotes.push(`When referencing the work, use the project name "${project.name}".`);
+  }
+
+  return {
+    constraints,
+    styleNotes,
+  };
+}
+
+function deriveCompanyPreferences(
+  company: { name: string; codeLabel: string | null } | null,
+): PromptPreferenceSet {
+  const constraints: string[] = [];
+  const styleNotes: string[] = [];
+
+  if (!company) {
+    return { constraints, styleNotes };
+  }
+
+  if (company.codeLabel) {
+    constraints.push(
+      `Adhere to the internal "${company.codeLabel}" coding conventions when naming modules, files, or database entities.`,
+    );
+  }
+
+  styleNotes.push(
+    `Maintain a professional tone consistent with ${company.name}'s product voice in documentation and user-facing copy.`,
+  );
+
+  return {
+    constraints,
+    styleNotes,
+  };
 }
