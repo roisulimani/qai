@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RequestMoreCreditsButton } from "@/components/request-more-credits-button";
 
 export type CreditBalanceIndicatorVariant = "card" | "inline";
 
@@ -31,6 +32,7 @@ export const CreditBalanceIndicator = ({
 
     const balance = balanceProp ?? data?.creditBalance ?? 0;
     const isLoading = loadingProp ?? (shouldFetch ? queryLoading : false);
+    const isOutOfCredits = !isLoading && (balance ?? 0) <= 0;
 
     const formattedBalance = useMemo(
         () => new Intl.NumberFormat("en-US").format(balance ?? 0),
@@ -41,7 +43,7 @@ export const CreditBalanceIndicator = ({
         return (
             <div
                 className={cn(
-                    "flex items-center gap-2 text-[11px] font-medium text-muted-foreground",
+                    "flex flex-wrap items-center gap-2 text-[11px] font-medium text-muted-foreground",
                     className,
                 )}
             >
@@ -50,6 +52,15 @@ export const CreditBalanceIndicator = ({
                     <Skeleton className="h-3 w-12" />
                 ) : (
                     <span className="font-semibold text-foreground">{formattedBalance}</span>
+                )}
+                {isOutOfCredits && (
+                    <RequestMoreCreditsButton
+                        variant="link"
+                        size="sm"
+                        className="h-auto px-0 text-[11px]"
+                    >
+                        Request more credits
+                    </RequestMoreCreditsButton>
                 )}
             </div>
         );
@@ -73,6 +84,9 @@ export const CreditBalanceIndicator = ({
                 <div className="mt-2 text-2xl font-semibold text-foreground">
                     {formattedBalance}
                 </div>
+            )}
+            {isOutOfCredits && (
+                <RequestMoreCreditsButton className="mt-4 w-full" />
             )}
         </div>
     );

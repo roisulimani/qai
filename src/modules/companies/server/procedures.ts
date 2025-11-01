@@ -4,6 +4,11 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import { hashAccessCode } from "@/lib/auth";
+import {
+  EmailDeliveryError,
+  EmailServiceNotConfiguredError,
+  sendCreditRequestEmail,
+} from "@/lib/email";
 import { adminProcedure, companyProcedure, createTRPCRouter } from "@/trpc/init";
 
 export const companiesRouter = createTRPCRouter({
@@ -41,6 +46,59 @@ export const companiesRouter = createTRPCRouter({
       ...company,
       lastProjectAt: recentProject?.createdAt ?? null,
     };
+  }),
+
+  requestMoreCredits: companyProcedure.mutation(async ({ ctx }) => {
+    const company = await prisma.company.findUnique({
+      where: { id: ctx.company.id },
+      select: {
+        id: true,
+        name: true,
+        codeLabel: true,
+        creditBalance: true,
+        totalCreditsGranted: true,
+        totalCreditsSpent: true,
+        projectsCreated: true,
+        lastActiveAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!company) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+    }
+
+    const recentProject = await prisma.project.findFirst({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+
+    try {
+      await sendCreditRequestEmail({
+        company,
+        lastProjectAt: recentProject?.createdAt ?? null,
+      });
+    } catch (error) {
+      if (error instanceof EmailServiceNotConfiguredError) {
+        throw new TRPCError({
+          code: "FAILED_PRECONDITION",
+          message: "Email service is not configured.",
+        });
+      }
+
+      if (error instanceof EmailDeliveryError) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "We couldn't submit your request. Please try again later.",
+        });
+      }
+
+      throw error;
+    }
+
+    return { success: true } as const;
   }),
 
   adminList: adminProcedure.query(async () => {
