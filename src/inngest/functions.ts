@@ -1,24 +1,58 @@
-import { openai, createAgent, createTool, createNetwork, type Tool } from "@inngest/agent-kit";
+import {
+  openai,
+  createAgent,
+  createTool,
+  createNetwork,
+  createState,
+  type Tool,
+} from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import { getSandbox, lastAssistantTextMessageContent } from "./utils";
 import { PROMPT } from "@/prompt";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import {
+  buildConversationPayload,
+  computeRollingConversationSummary,
+  loadProjectConversationContext,
+} from "./conversation";
+import type { Fragment } from "@/generated/prisma";
 
 interface AgentState {
   summary: string;
-  files: { [path: string]: string}
+  files: { [path: string]: string };
+  hasFreshSummary: boolean;
 }
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
   { event: "code-agent/run" },
   async ({ event, step }) => {
+    const {
+      projectSummary,
+      messages,
+      latestFragment,
+      latestUserMessage,
+    } = await step.run("load-conversation-context", async () => {
+      return await loadProjectConversationContext(event.data.projectId);
+    });
+
+    const latestFragmentFiles = toFileRecord(latestFragment?.files);
+
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("qai-nextjs-t4");
       return sandbox.sandboxId;
     });
+
+    if (latestFragmentFiles) {
+      await step.run("hydrate-sandbox", async () => {
+        const sandbox = await getSandbox(sandboxId);
+        for (const [path, content] of Object.entries(latestFragmentFiles)) {
+          await sandbox.files.write(path, content);
+        }
+      });
+    }
     // Create a new agent with a system prompt
     const codeAgent = createAgent<AgentState>({
       name: "codeAgent",
@@ -138,6 +172,7 @@ export const codeAgentFunction = inngest.createFunction(
           if (lastAssistantMessageText && network) {
             if (lastAssistantMessageText.includes("<task_summary>")) {
               network.state.data.summary = lastAssistantMessageText;
+              network.state.data.hasFreshSummary = true;
             }
           }
           
@@ -146,22 +181,33 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
+    const defaultState = createState<AgentState>({
+      summary: latestFragment?.summary ?? "",
+      files: latestFragmentFiles ?? {},
+      hasFreshSummary: false,
+    });
+
     const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 15,
+      defaultState,
       router: async ({ network }) => {
-        const summary = network.state.data.summary;
-        if (summary) {
+        if (network.state.data.hasFreshSummary) {
           return;
         }
         return codeAgent;
       },
     });
 
+    const conversationPayload = buildConversationPayload({
+      projectSummary,
+      messages,
+      latestUserMessage,
+      userInput: event.data.value,
+    });
 
-
-    const result = await network.run(event.data.value);
+    const result = await network.run(conversationPayload);
 
     const isError =
       !result.state.data.summary ||
@@ -181,10 +227,10 @@ export const codeAgentFunction = inngest.createFunction(
             content: "Something went wrong. Please try again.",
             role: "ASSISTANT",
             type: "ERROR",
-          }
-        })
+          },
+        });
       }
-      return await prisma.message.create({
+      const assistantMessage = await prisma.message.create({
         data: {
           projectId: event.data.projectId,
           content: result.state.data.summary,
@@ -196,13 +242,26 @@ export const codeAgentFunction = inngest.createFunction(
               title: "Fragmented UI Coding Agent",
               files: result.state.data.files,
               summary: result.state.data.summary,
-            }
-          }
-        }
-      })
+            },
+          },
+        },
+      });
+
+      const updatedSummary = computeRollingConversationSummary({
+        previousSummary: projectSummary,
+        userMessage: event.data.value,
+        assistantMessage: result.state.data.summary ?? "",
+      });
+
+      await prisma.project.update({
+        where: { id: event.data.projectId },
+        data: { conversationSummary: updatedSummary },
+      });
+
+      return assistantMessage;
     });
 
-    return { 
+    return {
       url: sandboxUrl,
       title: "Fragmented UI Coding Agent",
       files: result.state.data.files,
@@ -210,3 +269,21 @@ export const codeAgentFunction = inngest.createFunction(
     };
   },
 );
+
+function toFileRecord(
+  value: Fragment["files"] | undefined | null,
+): Record<string, string> | null {
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    return null;
+  }
+
+  return Object.entries(value).reduce<Record<string, string>>(
+    (accumulator, [path, content]) => {
+      if (typeof content === "string") {
+        accumulator[path] = content;
+      }
+      return accumulator;
+    },
+    {},
+  );
+}

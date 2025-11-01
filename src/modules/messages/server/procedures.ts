@@ -17,7 +17,7 @@ export const messagesRouter = createTRPCRouter({
     .query(async ({ input, ctx }) => {
         const project = await prisma.project.findUnique({
             where: { id: input.projectId },
-            select: { id: true, companyId: true },
+            select: { id: true, companyId: true, conversationSummary: true },
         });
         if (!project || project.companyId !== ctx.company.id) {
             throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
@@ -33,7 +33,10 @@ export const messagesRouter = createTRPCRouter({
                 fragment: true,
             },
         });
-        return messages;
+        return {
+            messages,
+            conversationSummary: project.conversationSummary,
+        };
     }),
 
     create: companyProcedure
