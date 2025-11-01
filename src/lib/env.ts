@@ -9,6 +9,8 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EARLY_ACCESS_REQUEST_RECIPIENT: z.string().email().default("roi.sul@aol.com"),
   EARLY_ACCESS_REQUEST_FROM: z.string().email().default("no-reply@qai.app"),
+  CREDIT_REQUEST_RECIPIENT: z.string().email().default("roi.sul@aol.com"),
+  CREDIT_REQUEST_FROM: z.string().email().default("no-reply@qai.app"),
 });
 
 const parsed = envSchema.safeParse({
@@ -19,6 +21,8 @@ const parsed = envSchema.safeParse({
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   EARLY_ACCESS_REQUEST_RECIPIENT: process.env.EARLY_ACCESS_REQUEST_RECIPIENT,
   EARLY_ACCESS_REQUEST_FROM: process.env.EARLY_ACCESS_REQUEST_FROM,
+  CREDIT_REQUEST_RECIPIENT: process.env.CREDIT_REQUEST_RECIPIENT,
+  CREDIT_REQUEST_FROM: process.env.CREDIT_REQUEST_FROM,
 });
 
 if (!parsed.success) {

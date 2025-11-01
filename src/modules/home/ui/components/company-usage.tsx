@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 
 import { useTRPC } from "@/trpc/client";
+import { RequestMoreCreditsButton } from "@/components/request-more-credits-button";
 
 export const CompanyUsageSummary = () => {
     const trpc = useTRPC();
@@ -25,6 +26,8 @@ export const CompanyUsageSummary = () => {
 
     const creditsRemaining = data.creditBalance;
     const totalSpent = data.totalCreditsSpent;
+
+    const isOutOfCredits = creditsRemaining <= 0;
 
     return (
         <div className="w-full rounded-2xl border border-white/20 dark:border-white/10 p-4 sm:p-6 flex flex-col gap-y-4 bg-white/60 dark:bg-neutral-900/60 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/50 shadow-lg shadow-black/5">
@@ -64,6 +67,11 @@ export const CompanyUsageSummary = () => {
                     <p className="text-xs text-muted-foreground">Joined {formatDistanceToNow(data.createdAt, { addSuffix: true })}</p>
                 </div>
             </div>
+            {isOutOfCredits && (
+                <div className="flex justify-end">
+                    <RequestMoreCreditsButton className="w-full sm:w-auto" />
+                </div>
+            )}
         </div>
     );
 };
