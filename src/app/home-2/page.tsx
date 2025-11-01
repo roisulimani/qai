@@ -10,8 +10,8 @@ const HomeVariantPage = async () => {
                 <section className="relative h-screen w-full">
                     <Home2SplineScene />
                 </section>
-                <section className="flex min-h-[60vh] w-full items-center justify-center bg-gradient-to-b from-background to-muted px-6 py-24 text-center">
-                    <div className="mx-auto max-w-3xl space-y-4">
+                <section className="flex min-h-[60vh] w-full items-center justify-center bg-transparent px-6 py-24 text-center">
+                    <div className="mx-auto max-w-3xl space-y-4 text-foreground">
                         <h2 className="text-3xl font-semibold sm:text-4xl">Scroll confirmation section</h2>
                         <p className="text-base text-muted-foreground sm:text-lg">
                             This placeholder content ensures the page can scroll while you iterate on the alternate home design.

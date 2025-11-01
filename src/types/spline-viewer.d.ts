@@ -7,6 +7,7 @@ declare namespace JSX {
             HTMLElement
         > & {
             url?: string;
+            "events-target"?: "canvas" | "document" | "body" | "window";
         };
     }
 }

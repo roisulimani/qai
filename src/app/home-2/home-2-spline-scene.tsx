@@ -9,6 +9,7 @@ export const Home2SplineScene = () => {
                 scene="https://prod.spline.design/X6EA4JIN7TSHbLuz/scene.splinecode"
                 className="h-full w-full"
                 style={{ minHeight: "100%", minWidth: "100%" }}
+                eventsTarget="document"
             />
         </div>
     );

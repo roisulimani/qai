@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, DetailedHTMLProps, HTMLAttributes } from "react";
 
-type SplineProps = {
+type BaseSplineProps = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement>;
+
+type SplineEventsTarget = "canvas" | "document" | "body" | "window";
+
+type SplineProps = BaseSplineProps & {
     scene: string;
-    className?: string;
-    style?: CSSProperties;
+    eventsTarget?: SplineEventsTarget;
 };
 
 const SPLINE_VIEWER_SCRIPT_ID = "__spline-viewer-loader";
@@ -30,7 +33,7 @@ const ensureSplineViewerScript = () => {
     document.head.appendChild(script);
 };
 
-const Spline = ({ scene, className, style }: SplineProps) => {
+const Spline = ({ scene, style, eventsTarget = "canvas", ...rest }: SplineProps) => {
     useEffect(() => {
         ensureSplineViewerScript();
     }, []);
@@ -44,8 +47,9 @@ const Spline = ({ scene, className, style }: SplineProps) => {
     return (
         <spline-viewer
             url={scene}
-            className={className}
             style={combinedStyle}
+            {...rest}
+            {...(eventsTarget ? { "events-target": eventsTarget } : {})}
         />
     );
 };
