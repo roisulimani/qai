@@ -22,6 +22,7 @@ export const companiesRouter = createTRPCRouter({
         updatedAt: true,
         buildTourCompleted: true,
         projectsTourCompleted: true,
+        projectViewTourCompleted: true,
       },
     });
 
@@ -153,10 +154,13 @@ export const companiesRouter = createTRPCRouter({
       z.object({
         buildTourCompleted: z.boolean().optional(),
         projectsTourCompleted: z.boolean().optional(),
+        projectViewTourCompleted: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const updates: Partial<Record<"buildTourCompleted" | "projectsTourCompleted", boolean>> = {};
+      const updates: Partial<
+        Record<"buildTourCompleted" | "projectsTourCompleted" | "projectViewTourCompleted", boolean>
+      > = {};
 
       if (typeof input.buildTourCompleted === "boolean") {
         updates.buildTourCompleted = input.buildTourCompleted;
@@ -166,12 +170,17 @@ export const companiesRouter = createTRPCRouter({
         updates.projectsTourCompleted = input.projectsTourCompleted;
       }
 
+      if (typeof input.projectViewTourCompleted === "boolean") {
+        updates.projectViewTourCompleted = input.projectViewTourCompleted;
+      }
+
       if (Object.keys(updates).length === 0) {
         const company = await prisma.company.findUnique({
           where: { id: ctx.company.id },
           select: {
             buildTourCompleted: true,
             projectsTourCompleted: true,
+            projectViewTourCompleted: true,
           },
         });
 
@@ -188,6 +197,7 @@ export const companiesRouter = createTRPCRouter({
         select: {
           buildTourCompleted: true,
           projectsTourCompleted: true,
+          projectViewTourCompleted: true,
         },
       });
 

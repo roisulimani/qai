@@ -42,8 +42,9 @@ model Company {
   lastActiveAt       DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
-  buildTourCompleted   Boolean @default(false)
-  projectsTourCompleted Boolean @default(false)
+  buildTourCompleted     Boolean @default(false)
+  projectsTourCompleted  Boolean @default(false)
+  projectViewTourCompleted Boolean @default(false)
 
   sessions           CompanySession[]
   projects           Project[]
