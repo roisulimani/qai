@@ -1,16 +1,15 @@
-"use client";
+import { SiteHeader } from "@/modules/home/ui/components/site-header";
 
-import Spline from "@splinetool/react-spline/next";
+import { Home2SplineScene } from "./home-2-spline-scene";
 
-const HomeVariantPage = () => {
+const HomeVariantPage = async () => {
     return (
-        <main className="fixed inset-0 h-screen w-screen overflow-hidden">
-            <Spline
-                scene="https://prod.spline.design/X6EA4JIN7TSHbLuz/scene.splinecode"
-                className="h-full w-full"
-                style={{ minHeight: "100%", minWidth: "100%" }}
-            />
-        </main>
+        <div className="relative min-h-screen w-screen overflow-hidden bg-black">
+            <SiteHeader />
+            <main className="relative h-screen w-full">
+                <Home2SplineScene />
+            </main>
+        </div>
     );
 };
 

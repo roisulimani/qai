@@ -1,0 +1,17 @@
+"use client";
+
+import Spline from "@splinetool/react-spline/next";
+
+export const Home2SplineScene = () => {
+    return (
+        <div className="absolute inset-0 h-full w-full overflow-hidden">
+            <Spline
+                scene="https://prod.spline.design/X6EA4JIN7TSHbLuz/scene.splinecode"
+                className="h-full w-full"
+                style={{ minHeight: "100%", minWidth: "100%" }}
+            />
+        </div>
+    );
+};
+
+export default Home2SplineScene;
