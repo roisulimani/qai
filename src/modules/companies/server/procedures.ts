@@ -20,6 +20,8 @@ export const companiesRouter = createTRPCRouter({
         lastActiveAt: true,
         createdAt: true,
         updatedAt: true,
+        buildTourCompleted: true,
+        projectsTourCompleted: true,
       },
     });
 
@@ -140,6 +142,52 @@ export const companiesRouter = createTRPCRouter({
           companyId: company.id,
           amount: input.amount,
           reason: input.reason ?? "manual_grant",
+        },
+      });
+
+      return company;
+    }),
+
+  updateOnboarding: companyProcedure
+    .input(
+      z.object({
+        buildTourCompleted: z.boolean().optional(),
+        projectsTourCompleted: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updates: Partial<Record<"buildTourCompleted" | "projectsTourCompleted", boolean>> = {};
+
+      if (typeof input.buildTourCompleted === "boolean") {
+        updates.buildTourCompleted = input.buildTourCompleted;
+      }
+
+      if (typeof input.projectsTourCompleted === "boolean") {
+        updates.projectsTourCompleted = input.projectsTourCompleted;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        const company = await prisma.company.findUnique({
+          where: { id: ctx.company.id },
+          select: {
+            buildTourCompleted: true,
+            projectsTourCompleted: true,
+          },
+        });
+
+        if (!company) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+        }
+
+        return company;
+      }
+
+      const company = await prisma.company.update({
+        where: { id: ctx.company.id },
+        data: updates,
+        select: {
+          buildTourCompleted: true,
+          projectsTourCompleted: true,
         },
       });
 

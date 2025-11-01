@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { BuildOnboarding } from "@/modules/home/ui/components/build-onboarding";
 import { ProjectForm } from "@/modules/home/ui/components/project-form";
 import { ProjectsList } from "@/modules/home/ui/components/projects-list";
 import { SiteHeader } from "@/modules/home/ui/components/site-header";
@@ -20,6 +21,7 @@ const BuildPage = () => {
                     QAI is a platform for building and deploying AI-powered applications
                 </p>
                 <div className="mx-auto w-full max-w-3xl">
+                    <BuildOnboarding />
                     <ProjectForm />
                 </div>
             </section>

@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 
 import { ProjectsList } from "@/modules/home/ui/components/projects-list";
+import { ProjectsOnboarding } from "@/modules/home/ui/components/projects-onboarding";
 import { SiteHeader } from "@/modules/home/ui/components/site-header";
 import { getCaller } from "@/trpc/server";
 
@@ -55,6 +56,7 @@ const ProjectsPage = async () => {
             <div className="h-20" />
 
             <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+                <ProjectsOnboarding totalProjects={overview.totalProjects} />
                 <section className="rounded-3xl border border-white/20 bg-white/60 px-8 py-12 shadow-2xl shadow-black/10 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-white/10 dark:bg-neutral-900/60 dark:shadow-black/30 dark:supports-[backdrop-filter]:bg-neutral-900/50">
                     <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
                         <div className="space-y-4">
