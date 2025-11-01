@@ -27,6 +27,8 @@ model Project {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  conversationSummary String?
+
   messages Message[]
 }
 
