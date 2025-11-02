@@ -6,8 +6,8 @@ import { prisma } from "@/lib/db";
 import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { inngest } from '@/inngest/client';
-import { generateSlug } from "random-word-slugs";
 import { MODEL_IDS } from "@/modules/models/constants";
+import { PROJECT_NAME_PLACEHOLDER } from "@/modules/projects/constants";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -112,9 +112,7 @@ export const projectsRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
         const createdProject = await prisma.project.create({
             data: {
-                name: generateSlug(2, {
-                    format: "kebab"
-                }),
+                name: PROJECT_NAME_PLACEHOLDER,
                 companyId: ctx.company.id,
                 messages: {
                     create: {
@@ -134,6 +132,15 @@ export const projectsRouter = createTRPCRouter({
         });
 
         await recordProjectCreationSpend(ctx.company.id, createdProject.id);
+
+        await inngest.send({
+            name: "project/generate-name",
+            data: {
+                projectId: createdProject.id,
+                companyId: ctx.company.id,
+                initialMessage: input.value,
+            },
+        });
 
         await inngest.send({
             name: "code-agent/run",

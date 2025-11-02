@@ -19,6 +19,11 @@ import {
 } from "./conversation";
 import type { Fragment } from "@/generated/prisma";
 import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
+import {
+  PROJECT_NAME_MODEL,
+  PROJECT_NAME_PLACEHOLDER,
+  PROJECT_NAME_PROMPT,
+} from "@/modules/projects/constants";
 
 interface AgentState {
   summary: string;
@@ -273,6 +278,140 @@ export const codeAgentFunction = inngest.createFunction(
       files: result.state.data.files,
       summary: result.state.data.summary,
     };
+  },
+);
+
+export const generateProjectNameFunction = inngest.createFunction(
+  { id: "generate-project-name" },
+  { event: "project/generate-name" },
+  async ({ event, step }) => {
+    const project = await step.run("load-project", async () => {
+      return prisma.project.findUnique({
+        where: { id: event.data.projectId },
+        select: {
+          id: true,
+          name: true,
+          companyId: true,
+          messages: {
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: { content: true },
+          },
+        },
+      });
+    });
+
+    if (!project || project.companyId !== event.data.companyId) {
+      return;
+    }
+
+    if (project.name && project.name !== PROJECT_NAME_PLACEHOLDER) {
+      return;
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn("OPENAI_API_KEY is not configured; skipping project name generation");
+      return;
+    }
+
+    const initialMessage =
+      typeof event.data.initialMessage === "string" && event.data.initialMessage.trim().length > 0
+        ? event.data.initialMessage.trim()
+        : project.messages[0]?.content ?? "";
+
+    if (!initialMessage) {
+      return;
+    }
+
+    const projectName = await step.run("generate-project-name", async () => {
+      const response = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: PROJECT_NAME_MODEL,
+          input: [
+            {
+              role: "system",
+              content: PROJECT_NAME_PROMPT,
+            },
+            {
+              role: "user",
+              content: `Initial project request: """${initialMessage.slice(0, 600)}"""`,
+            },
+          ],
+          max_output_tokens: 60,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to generate project name: ${errorText}`);
+      }
+
+      const payload = (await response.json()) as {
+        output_text?: string[];
+        output?: Array<
+          | {
+              content?: Array<{ text?: string }>;
+            }
+          | string
+        >;
+      };
+
+      const combinedText = Array.isArray(payload.output_text)
+        ? payload.output_text.join(" ")
+        : Array.isArray(payload.output)
+          ? payload.output
+              .map((item) => {
+                if (typeof item === "string") {
+                  return item;
+                }
+                const content = item?.content;
+                if (!Array.isArray(content)) {
+                  return "";
+                }
+                return content
+                  .map((segment) => (typeof segment.text === "string" ? segment.text : ""))
+                  .join(" ");
+              })
+              .join(" ")
+          : "";
+
+      const cleaned = combinedText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0);
+
+      if (!cleaned) {
+        return null;
+      }
+
+      const sanitized = cleaned
+        .replace(/^[-"'\s]+/, "")
+        .replace(/[-"'\s]+$/, "")
+        .trim();
+
+      if (!sanitized) {
+        return null;
+      }
+
+      return sanitized.slice(0, 80);
+    });
+
+    if (!projectName) {
+      return;
+    }
+
+    await step.run("store-project-name", async () => {
+      await prisma.project.update({
+        where: { id: project.id },
+        data: { name: projectName },
+      });
+    });
   },
 );
 
