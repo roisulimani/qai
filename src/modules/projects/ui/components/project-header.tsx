@@ -7,6 +7,7 @@ import { HomeIcon, SunMoonIcon } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { PROJECT_NAME_PLACEHOLDER } from "@/modules/projects/constants";
 
 
 interface Props {
@@ -15,7 +16,13 @@ interface Props {
 export const ProjectHeader = ({ projectId }: Props) => {
     const trpc = useTRPC();
     const { data: project } = useSuspenseQuery(
-        trpc.projects.getOne.queryOptions({ id: projectId })
+        trpc.projects.getOne.queryOptions(
+            { id: projectId },
+            {
+                refetchInterval: (query) =>
+                    query.state.data?.name === PROJECT_NAME_PLACEHOLDER ? 2000 : false,
+            }
+        )
     );
     const { theme, setTheme } = useTheme();
     const cycleTheme = () => {
