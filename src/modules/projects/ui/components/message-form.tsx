@@ -108,7 +108,9 @@ export const MessageForm = ({ projectId }: Props) => {
                         name="model"
                         render={({ field }) => (
                             <FormItem className="w-full sm:w-auto">
-                                <FormLabel className="sr-only">Model</FormLabel>
+                                <FormLabel className="text-xs font-medium text-muted-foreground">
+                                    Model
+                                </FormLabel>
                                 <FormControl>
                                     <ModelSelect
                                         value={field.value}

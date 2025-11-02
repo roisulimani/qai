@@ -115,29 +115,31 @@ export const ProjectForm = () => {
                         )}
                     />
                     <div className="mt-4 space-y-3 border-t border-black/5 pt-3 dark:border-white/10">
-                        <FormField
-                            control={form.control}
-                            name="model"
-                            render={({ field }) => (
-                                <FormItem className="w-full sm:w-auto">
-                                    <FormLabel className="sr-only">Model</FormLabel>
-                                    <FormControl>
-                                        <ModelSelect
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            disabled={isPending}
-                                            triggerClassName="w-full sm:w-[220px]"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <CreditBalanceIndicator
                                 variant="inline"
                                 balance={company?.creditBalance}
                                 isLoading={isCompanyLoading}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="model"
+                                render={({ field }) => (
+                                    <FormItem className="w-full sm:w-auto">
+                                        <FormLabel className="text-xs font-medium text-muted-foreground">
+                                            Model
+                                        </FormLabel>
+                                        <FormControl>
+                                            <ModelSelect
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                disabled={isPending}
+                                                triggerClassName="w-full sm:w-[220px]"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
                             <div className="flex items-center gap-3 sm:justify-end">
                                 <div className="text-[10px] text-muted-foreground">
