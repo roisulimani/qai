@@ -18,6 +18,7 @@ import {
   loadProjectConversationContext,
 } from "./conversation";
 import type { Fragment } from "@/generated/prisma";
+import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
 
 interface AgentState {
   summary: string;
@@ -39,6 +40,11 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     const latestFragmentFiles = toFileRecord(latestFragment?.files);
+    const requestedModel =
+      typeof event.data.model === "string" &&
+      (MODEL_IDS as readonly string[]).includes(event.data.model)
+        ? (event.data.model as (typeof MODEL_IDS)[number])
+        : DEFAULT_MODEL;
 
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("qai-nextjs-t4");
@@ -57,8 +63,8 @@ export const codeAgentFunction = inngest.createFunction(
     const codeAgent = createAgent<AgentState>({
       name: "codeAgent",
       system: PROMPT,
-      model: openai({ 
-        model: "gpt-4.1",
+      model: openai({
+        model: requestedModel,
         defaultParameters: {
           temperature: 0.1,
         },

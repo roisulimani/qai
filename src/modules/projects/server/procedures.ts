@@ -7,6 +7,7 @@ import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { inngest } from '@/inngest/client';
 import { generateSlug } from "random-word-slugs";
+import { MODEL_IDS } from "@/modules/models/constants";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -105,6 +106,7 @@ export const projectsRouter = createTRPCRouter({
             value: z.string()
              .min(1, {message: "Prompt is required"})
              .max(1000, {message: "Prompt must be less than 1000 characters"}),
+            model: z.enum(MODEL_IDS),
         })
     )
     .mutation(async ({ input, ctx }) => {
@@ -139,6 +141,7 @@ export const projectsRouter = createTRPCRouter({
               value: input.value,
               projectId: createdProject.id,
               companyId: ctx.company.id,
+              model: input.model,
             },
           });
           return createdProject;

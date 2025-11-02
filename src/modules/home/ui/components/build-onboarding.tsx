@@ -39,6 +39,11 @@ export const BuildOnboarding = () => {
                     "Describe the workflow, tone, and deliverable in the message area. Use ⌘ + Enter (or Ctrl + Enter) to submit instantly.",
             },
             {
+                title: "Pick the right model",
+                description:
+                    "Select from curated OpenAI models directly in the form. Each choice notes its strengths so you can match it to the task.",
+            },
+            {
                 title: "Track credits in real time",
                 description:
                     "Your remaining credits appear beneath the composer so you always know how many generations you have left.",
