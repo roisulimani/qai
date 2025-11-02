@@ -29,7 +29,7 @@ export const ModelSelect = ({
         <Select value={value} onValueChange={(val) => onChange(val as ModelId)} disabled={disabled}>
             <SelectTrigger
                 className={cn(
-                    "h-10 w-full justify-between rounded-full border border-black/10 bg-white/70 text-sm font-medium shadow-sm transition hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-black/5 dark:border-white/10 dark:bg-neutral-900/70 dark:hover:bg-neutral-900",
+                    "h-9 w-full justify-between gap-2 rounded-full border border-black/5 bg-white/80 px-3 text-sm font-medium shadow-sm transition hover:bg-white focus-visible:ring-2 focus-visible:ring-black/5 dark:border-white/10 dark:bg-neutral-900/70 dark:hover:bg-neutral-900",
                     triggerClassName,
                 )}
             >
@@ -37,9 +37,13 @@ export const ModelSelect = ({
                     {MODEL_OPTIONS.find((option) => option.value === value)?.label}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className="min-w-[260px]">
+            <SelectContent className="w-[--radix-select-trigger-width] min-w-0 rounded-2xl border border-border bg-popover/95 p-1 shadow-lg">
                 {MODEL_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="rounded-xl px-3 py-2 text-sm focus:bg-muted/60"
+                    >
                         <div className="flex flex-col text-left">
                             <span className="font-medium">{option.label}</span>
                             <span className="text-xs text-muted-foreground">{option.description}</span>

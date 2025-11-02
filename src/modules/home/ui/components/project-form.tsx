@@ -119,15 +119,14 @@ export const ProjectForm = () => {
                             control={form.control}
                             name="model"
                             render={({ field }) => (
-                                <FormItem className="sm:max-w-sm">
-                                    <FormLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Model
-                                    </FormLabel>
+                                <FormItem className="w-full sm:w-auto">
+                                    <FormLabel className="sr-only">Model</FormLabel>
                                     <FormControl>
                                         <ModelSelect
                                             value={field.value}
                                             onChange={field.onChange}
                                             disabled={isPending}
+                                            triggerClassName="w-full sm:w-[220px]"
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -140,12 +139,12 @@ export const ProjectForm = () => {
                                 balance={company?.creditBalance}
                                 isLoading={isCompanyLoading}
                             />
-                            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:justify-end">
-                                <div className="text-[10px] font-mono text-muted-foreground">
-                                    <kbd className="ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                            <div className="flex items-center gap-3 sm:justify-end">
+                                <div className="text-[10px] text-muted-foreground">
+                                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                                         <span>&#8984;</span>Enter
                                     </kbd>
-                                    &nbsp;to submit
+                                    <span className="ml-1">to launch</span>
                                 </div>
                                 <Button
                                     type="submit"
