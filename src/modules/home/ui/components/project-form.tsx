@@ -125,18 +125,20 @@ export const ProjectForm = () => {
                                 control={form.control}
                                 name="model"
                                 render={({ field }) => (
-                                    <FormItem className="w-full sm:w-auto">
-                                        <FormLabel className="text-xs font-medium text-muted-foreground">
-                                            Model
-                                        </FormLabel>
-                                        <FormControl>
-                                            <ModelSelect
-                                                value={field.value}
-                                                onChange={field.onChange}
-                                                disabled={isPending}
-                                                triggerClassName="w-full sm:w-[220px]"
-                                            />
-                                        </FormControl>
+                                    <FormItem className="w-full space-y-1 sm:w-auto">
+                                        <div className="flex items-center gap-2">
+                                            <FormLabel className="whitespace-nowrap text-xs font-medium text-muted-foreground">
+                                                Model
+                                            </FormLabel>
+                                            <FormControl>
+                                                <ModelSelect
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    disabled={isPending}
+                                                    triggerClassName="w-[180px] sm:w-[190px]"
+                                                />
+                                            </FormControl>
+                                        </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}

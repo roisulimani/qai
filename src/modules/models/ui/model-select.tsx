@@ -29,7 +29,7 @@ export const ModelSelect = ({
         <Select value={value} onValueChange={(val) => onChange(val as ModelId)} disabled={disabled}>
             <SelectTrigger
                 className={cn(
-                    "h-9 w-full justify-between gap-2 rounded-full border border-black/5 bg-white/80 px-3 text-sm font-medium shadow-sm transition hover:bg-white focus-visible:ring-2 focus-visible:ring-black/5 dark:border-white/10 dark:bg-neutral-900/70 dark:hover:bg-neutral-900",
+                    "h-9 min-w-[10rem] justify-between gap-2 rounded-full border border-black/5 bg-white/80 px-3 text-sm font-medium shadow-sm transition hover:bg-white focus-visible:ring-2 focus-visible:ring-black/5 dark:border-white/10 dark:bg-neutral-900/70 dark:hover:bg-neutral-900",
                     triggerClassName,
                 )}
             >
