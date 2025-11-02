@@ -5,6 +5,15 @@ import { format } from "date-fns";
 import { ChevronRightIcon, Code2Icon } from "lucide-react";
 import Image from "next/image";
 
+const sanitizeAssistantContent = (content: string) => {
+    const hasTaskSummaryTag = /<\/?task_summary>/i.test(content);
+    if (!hasTaskSummaryTag) {
+        return content;
+    }
+
+    return content.replace(/<\/?task_summary>/gi, "").trim();
+};
+
 interface UserMessageProps {
     content: string;
 };
@@ -66,14 +75,16 @@ interface AssistantMessageProps {
     type: MessageType;
 };
 
-const AssistantMessage = ({ 
-    content, 
-    fragment, 
+const AssistantMessage = ({
+    content,
+    fragment,
     createdAt, 
     isActiveFragment, 
-    onFragmentClick, 
-    type 
+    onFragmentClick,
+    type
 }: AssistantMessageProps) => {
+    const sanitizedContent = sanitizeAssistantContent(content);
+
     return (
         <div className={cn(
             "flex flex-col group px-2 pb-4",
@@ -96,7 +107,7 @@ const AssistantMessage = ({
             </div>
             <div className="pl-8.5 flex flex-col gap-y-4">
                 <span>
-                    {content}
+                    {sanitizedContent}
                 </span>
                 {fragment && type === "RESULT" && (
                     <FragmentCard
