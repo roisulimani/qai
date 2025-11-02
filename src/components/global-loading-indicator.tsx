@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
@@ -17,6 +17,16 @@ export const GlobalLoadingIndicator = () => {
     );
     const [isVisible, setIsVisible] = useState(false);
     const [shouldRender, setShouldRender] = useState(false);
+    const indicatorStyle = useMemo<CSSProperties>(
+        () => ({
+            animation: "global-loading-orbit 2.8s ease-in-out infinite",
+            width: "var(--global-loading-length)",
+            "--global-loading-length": "clamp(120px, 40vw, 320px)",
+            "--global-loading-radius":
+                "max(calc(min(45vw, 45vh) - (var(--global-loading-length) / 2) - 32px), 32px)",
+        }),
+        [],
+    );
 
     useEffect(() => {
         let showTimeout: NodeJS.Timeout | undefined;
@@ -52,17 +62,22 @@ export const GlobalLoadingIndicator = () => {
         <div
             aria-hidden={!isVisible}
             className={cn(
-                "pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center px-6 transition-opacity duration-300",
+                "pointer-events-none fixed inset-0 z-[100] transition-opacity duration-300",
                 isVisible ? "opacity-100" : "opacity-0",
             )}
         >
-            <div className="relative h-1 w-full max-w-4xl overflow-hidden rounded-b-full bg-primary/15">
+            <div className="relative h-full w-full">
                 <div
-                    className="absolute inset-y-0 w-1/2 min-w-[120px] rounded-full bg-primary"
-                    style={{
-                        animation: "global-loading-bar 1.2s ease-in-out infinite",
-                    }}
-                />
+                    className="absolute left-1/2 top-1/2 h-1 overflow-hidden rounded-full bg-primary/15"
+                    style={indicatorStyle}
+                >
+                    <div
+                        className="absolute inset-y-0 w-1/2 min-w-[120px] rounded-full bg-primary"
+                        style={{
+                            animation: "global-loading-bar 1.2s ease-in-out infinite",
+                        }}
+                    />
+                </div>
             </div>
         </div>
     );

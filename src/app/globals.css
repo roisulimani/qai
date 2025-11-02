@@ -141,3 +141,30 @@
     transform: translateX(100%);
   }
 }
+
+@keyframes global-loading-orbit {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg)
+      translateX(var(--global-loading-radius)) rotate(0deg);
+  }
+
+  25% {
+    transform: translate(-50%, -50%) rotate(90deg)
+      translateX(var(--global-loading-radius)) rotate(-90deg);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg)
+      translateX(var(--global-loading-radius)) rotate(-180deg);
+  }
+
+  75% {
+    transform: translate(-50%, -50%) rotate(270deg)
+      translateX(var(--global-loading-radius)) rotate(-270deg);
+  }
+
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg)
+      translateX(var(--global-loading-radius)) rotate(-360deg);
+  }
+}
