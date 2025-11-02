@@ -9,7 +9,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
-import { Form, FormField } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
+import { ModelSelect } from "@/modules/models/ui/model-select";
 
 
 interface Props {
@@ -20,6 +22,7 @@ const formSchema = z.object({
     message: z.string()
     .min(1, {message: "Message is required"})
     .max(1000, {message: "Message must be less than 1000 characters"}),
+    model: z.enum(MODEL_IDS),
 });
 
 export const MessageForm = ({ projectId }: Props) => {
@@ -30,12 +33,14 @@ export const MessageForm = ({ projectId }: Props) => {
         resolver: zodResolver(formSchema),
         defaultValues: {
             message: "",
+            model: DEFAULT_MODEL,
         },
     });
 
     const createMessage = useMutation(trpc.messages.create.mutationOptions({
         onSuccess: () => {
-            form.reset();
+            const currentModel = form.getValues("model");
+            form.reset({ message: "", model: currentModel });
             queryClient.invalidateQueries(
                 trpc.messages.getMany.queryOptions({ projectId }),
             );
@@ -56,6 +61,7 @@ export const MessageForm = ({ projectId }: Props) => {
         await createMessage.mutateAsync({
             value: data.message,
             projectId,
+            model: data.model,
         });
     };
 
@@ -65,8 +71,8 @@ export const MessageForm = ({ projectId }: Props) => {
     const isButtonDisabled = isPending || !form.formState.isValid;
     
     return (
-        < Form {...form}>
-            <form 
+        <Form {...form}>
+            <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className={cn(
                     "relative border p-4 pt-1 rounded-xl bg-sidebar dark:bg-sidebar transition-all",
@@ -78,46 +84,67 @@ export const MessageForm = ({ projectId }: Props) => {
                     control={form.control}
                     name="message"
                     render={({ field }) => (
-                        <TextareaAutosize 
-                        {...field}
-                        disabled={isPending}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        minRows={2}
-                        maxRows={8}
-                        className="pt-4 resize-none border-none w-full outline-none bg-transparent"
-                        placeholder="What do you want to build?"
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
-                                e.preventDefault();
-                                form.handleSubmit(onSubmit)(e);
-                            }
-                        }}
+                        <TextareaAutosize
+                            {...field}
+                            disabled={isPending}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                            minRows={2}
+                            maxRows={8}
+                            className="pt-4 resize-none border-none w-full outline-none bg-transparent"
+                            placeholder="What do you want to build?"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
+                                    e.preventDefault();
+                                    form.handleSubmit(onSubmit)(e);
+                                }
+                            }}
                         />
                     )}
                 />
-                <div className="flex gap-x-2 items-end justify-between pt-2">
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center
-                        gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                            <span>&#8984;</span>Enter
-                        </kbd>
-                        &nbsp;to submit
+                <div className="mt-3 flex flex-col gap-3 border-t border-black/5 pt-3 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
+                    <FormField
+                        control={form.control}
+                        name="model"
+                        render={({ field }) => (
+                            <FormItem className="w-full sm:max-w-xs">
+                                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Model
+                                </FormLabel>
+                                <FormControl>
+                                    <ModelSelect
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        disabled={isPending}
+                                    />
+                                </FormControl>
+                                <FormDescription>Switch models for this message without leaving the flow.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                            <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                                <span>&#8984;</span>Enter
+                            </kbd>
+                            &nbsp;to submit
+                        </div>
+                        <Button
+                            type="submit"
+                            disabled={isButtonDisabled}
+                            className={cn(
+                                "size-8 rounded-full",
+                                isButtonDisabled && "opacity-50 cursor-not-allowed",
+                            )}
+                        >
+                            {isPending ? (
+                                <Loader2Icon className="size-4 animate-spin" />
+                            ) : (
+                                <ArrowUpIcon className="size-4" />
+                            )}
+                        </Button>
                     </div>
-                    <Button
-                        type="submit"
-                        disabled={isButtonDisabled}
-                        className={cn(
-                            "size-8 rounded-full",
-                            isButtonDisabled && "opacity-50 cursor-not-allowed",
-                        )}
-                    >
-                        {isPending ? (
-                            <Loader2Icon className="size-4 animate-spin" />
-                        ) : (
-                            <ArrowUpIcon className="size-4" />
-                        )}
-                    </Button>
                 </div>
             </form>
         </Form>

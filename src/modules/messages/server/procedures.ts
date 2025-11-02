@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { inngest } from '@/inngest/client';
 import { recordMessageSendSpend } from '@/modules/companies/server/credits';
+import { MODEL_IDS } from "@/modules/models/constants";
 
 export const messagesRouter = createTRPCRouter({
 
@@ -46,6 +47,7 @@ export const messagesRouter = createTRPCRouter({
              .min(1, {message: "Prompt is required"})
              .max(1000, {message: "Prompt must be less than 1000 characters"}),
             projectId: z.string().min(1, {message: "Project ID is required"}),
+            model: z.enum(MODEL_IDS),
         }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -71,6 +73,7 @@ export const messagesRouter = createTRPCRouter({
               value: input.value,
               projectId: input.projectId,
               companyId: ctx.company.id,
+              model: input.model,
             },
           });
           return newMessage;

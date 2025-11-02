@@ -11,14 +11,17 @@ import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { CreditBalanceIndicator } from "@/components/credit-balance-indicator";
 import { Button } from "@/components/ui/button";
-import { Form, FormField } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useRouter } from "next/navigation";
 import { PROJECT_TEMPLATES } from "@/modules/home/constants";
+import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
+import { ModelSelect } from "@/modules/models/ui/model-select";
 
 const formSchema = z.object({
     message: z.string()
     .min(1, {message: "Message is required"})
     .max(1000, {message: "Message must be less than 1000 characters"}),
+    model: z.enum(MODEL_IDS),
 });
 
 export const ProjectForm = () => {
@@ -33,6 +36,7 @@ export const ProjectForm = () => {
         resolver: zodResolver(formSchema),
         defaultValues: {
             message: "",
+            model: DEFAULT_MODEL,
         },
     });
 
@@ -58,6 +62,7 @@ export const ProjectForm = () => {
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
         await createProject.mutateAsync({
             value: data.message,
+            model: data.model,
         });
     };
 
@@ -109,33 +114,57 @@ export const ProjectForm = () => {
                             />
                         )}
                     />
-                    <div className="mt-4 flex flex-col gap-3 border-t border-white/40 pt-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-                        <CreditBalanceIndicator
-                            variant="inline"
-                            balance={company?.creditBalance}
-                            isLoading={isCompanyLoading}
+                    <div className="mt-4 space-y-3 border-t border-black/5 pt-3 dark:border-white/10">
+                        <FormField
+                            control={form.control}
+                            name="model"
+                            render={({ field }) => (
+                                <FormItem className="sm:max-w-sm">
+                                    <FormLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                        Model
+                                    </FormLabel>
+                                    <FormControl>
+                                        <ModelSelect
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            disabled={isPending}
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Choose the OpenAI model that will power this project.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
                         />
-                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:justify-end">
-                            <div className="text-[10px] font-mono text-muted-foreground">
-                                <kbd className="ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                                    <span>&#8984;</span>Enter
-                                </kbd>
-                                &nbsp;to submit
+                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <CreditBalanceIndicator
+                                variant="inline"
+                                balance={company?.creditBalance}
+                                isLoading={isCompanyLoading}
+                            />
+                            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:justify-end">
+                                <div className="text-[10px] font-mono text-muted-foreground">
+                                    <kbd className="ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                                        <span>&#8984;</span>Enter
+                                    </kbd>
+                                    &nbsp;to submit
+                                </div>
+                                <Button
+                                    type="submit"
+                                    disabled={isButtonDisabled}
+                                    className={cn(
+                                        "size-8 rounded-full",
+                                        isButtonDisabled && "cursor-not-allowed opacity-50",
+                                    )}
+                                >
+                                    {isPending ? (
+                                        <Loader2Icon className="size-4 animate-spin" />
+                                    ) : (
+                                        <ArrowUpIcon className="size-4" />
+                                    )}
+                                </Button>
                             </div>
-                            <Button
-                                type="submit"
-                                disabled={isButtonDisabled}
-                                className={cn(
-                                    "size-8 rounded-full",
-                                    isButtonDisabled && "cursor-not-allowed opacity-50",
-                                )}
-                            >
-                                {isPending ? (
-                                    <Loader2Icon className="size-4 animate-spin" />
-                                ) : (
-                                    <ArrowUpIcon className="size-4" />
-                                )}
-                            </Button>
                         </div>
                     </div>
                 </form>
