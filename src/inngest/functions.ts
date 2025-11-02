@@ -62,8 +62,15 @@ export const codeAgentFunction = inngest.createFunction(
       messages,
       latestFragment,
       latestUserMessage,
-    } = await step.run("load-conversation-context", async () => {
-      return await loadProjectConversationContext(event.data.projectId);
+    } = await withProjectAction({
+      projectId: event.data.projectId,
+      actionKey: "loadConversationContext",
+      label: "Loading project history",
+      run: async () => {
+        return await step.run("load-conversation-context", async () => {
+          return await loadProjectConversationContext(event.data.projectId);
+        });
+      },
     });
 
     const latestFragmentFiles = toFileRecord(latestFragment?.files);
@@ -73,17 +80,33 @@ export const codeAgentFunction = inngest.createFunction(
         ? (event.data.model as (typeof MODEL_IDS)[number])
         : DEFAULT_MODEL;
 
-    const sandboxId = await step.run("get-sandbox-id", async () => {
-      const sandbox = await Sandbox.create("qai-nextjs-t4");
-      return sandbox.sandboxId;
+    const sandboxId = await withProjectAction({
+      projectId: event.data.projectId,
+      actionKey: "createSandbox",
+      label: "Provisioning development sandbox",
+      run: async () => {
+        return await step.run("get-sandbox-id", async () => {
+          const sandbox = await Sandbox.create("qai-nextjs-t4");
+          return sandbox.sandboxId;
+        });
+      },
     });
 
     if (latestFragmentFiles) {
-      await step.run("hydrate-sandbox", async () => {
-        const sandbox = await getSandbox(sandboxId);
-        for (const [path, content] of Object.entries(latestFragmentFiles)) {
-          await sandbox.files.write(path, content);
-        }
+      const files = Object.keys(latestFragmentFiles);
+      await withProjectAction({
+        projectId: event.data.projectId,
+        actionKey: "hydrateSandbox",
+        label: summarizeFiles(files, "Syncing"),
+        metadata: { files },
+        run: async () => {
+          return await step.run("hydrate-sandbox", async () => {
+            const sandbox = await getSandbox(sandboxId);
+            for (const [path, content] of Object.entries(latestFragmentFiles)) {
+              await sandbox.files.write(path, content);
+            }
+          });
+        },
       });
     }
     // Create a new agent with a system prompt
@@ -305,58 +328,81 @@ export const codeAgentFunction = inngest.createFunction(
       userInput: event.data.value,
     });
 
-    const result = await network.run(conversationPayload);
+    const result = await withProjectAction({
+      projectId: event.data.projectId,
+      actionKey: "runAgent",
+      label: "Running coding agent",
+      run: async () => {
+        return await step.run("run-agent-network", async () => {
+          return await network.run(conversationPayload);
+        });
+      },
+    });
 
     const isError =
       !result.state.data.summary ||
       Object.keys(result.state.data.files || {}).length === 0;
 
-    const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const sandbox = await getSandbox(sandboxId);
-      const host = sandbox.getHost(3000);
-      return `https://${host}`;
+    const sandboxUrl = await withProjectAction({
+      projectId: event.data.projectId,
+      actionKey: "preparePreview",
+      label: "Preparing live preview",
+      run: async () => {
+        return await step.run("get-sandbox-url", async () => {
+          const sandbox = await getSandbox(sandboxId);
+          const host = sandbox.getHost(3000);
+          return `https://${host}`;
+        });
+      },
     });
 
-    await step.run("save-result", async () => {
-      if (isError) {
-        return await prisma.message.create({
-          data: {
-            projectId: event.data.projectId,
-            content: "Something went wrong. Please try again.",
-            role: "ASSISTANT",
-            type: "ERROR",
-          },
-        });
-      }
-      const assistantMessage = await prisma.message.create({
-        data: {
-          projectId: event.data.projectId,
-          content: result.state.data.summary,
-          role: "ASSISTANT",
-          type: "RESULT",
-          fragment: {
-            create: {
-              sandboxUrl: sandboxUrl,
-              title: "Fragmented UI Coding Agent",
-              files: result.state.data.files,
-              summary: result.state.data.summary,
+    await withProjectAction({
+      projectId: event.data.projectId,
+      actionKey: "persistResult",
+      label: "Saving agent result",
+      run: async () => {
+        return await step.run("save-result", async () => {
+          if (isError) {
+            return await prisma.message.create({
+              data: {
+                projectId: event.data.projectId,
+                content: "Something went wrong. Please try again.",
+                role: "ASSISTANT",
+                type: "ERROR",
+              },
+            });
+          }
+          const assistantMessage = await prisma.message.create({
+            data: {
+              projectId: event.data.projectId,
+              content: result.state.data.summary,
+              role: "ASSISTANT",
+              type: "RESULT",
+              fragment: {
+                create: {
+                  sandboxUrl: sandboxUrl,
+                  title: "Fragmented UI Coding Agent",
+                  files: result.state.data.files,
+                  summary: result.state.data.summary,
+                },
+              },
             },
-          },
-        },
-      });
+          });
 
-      const updatedSummary = computeRollingConversationSummary({
-        previousSummary: projectSummary,
-        userMessage: event.data.value,
-        assistantMessage: result.state.data.summary ?? "",
-      });
+          const updatedSummary = computeRollingConversationSummary({
+            previousSummary: projectSummary,
+            userMessage: event.data.value,
+            assistantMessage: result.state.data.summary ?? "",
+          });
 
-      await prisma.project.update({
-        where: { id: event.data.projectId },
-        data: { conversationSummary: updatedSummary },
-      });
+          await prisma.project.update({
+            where: { id: event.data.projectId },
+            data: { conversationSummary: updatedSummary },
+          });
 
-      return assistantMessage;
+          return assistantMessage;
+        });
+      },
     });
 
     return {
