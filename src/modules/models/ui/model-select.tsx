@@ -33,7 +33,9 @@ export const ModelSelect = ({
                     triggerClassName,
                 )}
             >
-                <SelectValue placeholder={placeholder} />
+                <SelectValue placeholder={placeholder}>
+                    {MODEL_OPTIONS.find((option) => option.value === value)?.label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent className="min-w-[260px]">
                 {MODEL_OPTIONS.map((option) => (

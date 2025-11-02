@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { CreditBalanceIndicator } from "@/components/credit-balance-indicator";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useRouter } from "next/navigation";
 import { PROJECT_TEMPLATES } from "@/modules/home/constants";
 import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
@@ -130,9 +130,6 @@ export const ProjectForm = () => {
                                             disabled={isPending}
                                         />
                                     </FormControl>
-                                    <FormDescription>
-                                        Choose the OpenAI model that will power this project.
-                                    </FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}

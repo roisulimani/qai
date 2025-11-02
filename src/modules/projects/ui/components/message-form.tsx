@@ -9,7 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
 import { ModelSelect } from "@/modules/models/ui/model-select";
 
@@ -118,7 +118,6 @@ export const MessageForm = ({ projectId }: Props) => {
                                         disabled={isPending}
                                     />
                                 </FormControl>
-                                <FormDescription>Switch models for this message without leaving the flow.</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

@@ -39,6 +39,11 @@ export const ProjectOnboarding = () => {
                     "Switch between the Preview and Code tabs to view live sandboxes or dive into the generated file structure.",
             },
             {
+                title: "Swap models on the fly",
+                description:
+                    "Adjust the OpenAI model per message to experiment with speed and quality without leaving the project view.",
+            },
+            {
                 title: "Share progress with your team",
                 description:
                     "Use the preview panel to demo work, or upgrade your workspace to unlock premium collaboration tools.",
