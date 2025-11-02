@@ -1,5 +1,8 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { useTRPC } from "@/trpc/client";
 
 const ShimmerMessages = () => {
     const messages = [
@@ -35,11 +38,24 @@ const ShimmerMessages = () => {
     );
 };
 
-export const MessageLoading = () => {
+interface MessageLoadingProps {
+    projectId: string;
+};
+
+export const MessageLoading = ({ projectId }: MessageLoadingProps) => {
+    const trpc = useTRPC();
+    const { data } = useQuery({
+        ...trpc.projects.getActiveActions.queryOptions({ projectId }),
+        refetchInterval: 1000,
+        refetchIntervalInBackground: true,
+    });
+
+    const actions = data?.actions ?? [];
+
     return (
         <div className="flex flex-col group px-2 pb-4">
             <div className="flex items-center gap-2 pl-2 mb-2">
-                <Image 
+                <Image
                 src="/logo.png"
                 alt="QAI"
                 width={30}
@@ -51,7 +67,25 @@ export const MessageLoading = () => {
                 </span>
             </div>
             <div className="pl-8.5 flex flex-col gap-y-4">
-                <ShimmerMessages />
+                {actions.length > 0 ? (
+                    <div className="flex flex-col gap-y-2">
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground/80">
+                            In progress
+                        </span>
+                        <ul className="flex flex-col gap-y-2">
+                            {actions.map((action) => (
+                                <li key={action.id} className="flex items-center gap-2">
+                                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground">
+                                        {action.label}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ) : (
+                    <ShimmerMessages />
+                )}
             </div>
         </div>
     );

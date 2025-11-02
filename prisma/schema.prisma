@@ -30,6 +30,7 @@ model Project {
   conversationSummary String?
 
   messages Message[]
+  actions  ProjectAction[]
 }
 
 model Company {
@@ -110,4 +111,27 @@ model Fragment {
   summary    String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+enum ProjectActionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model ProjectAction {
+  id        String              @id @default(uuid())
+  projectId String
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  actionKey String
+  label     String
+  status    ProjectActionStatus @default(RUNNING)
+  metadata  Json?
+  error     String?
+
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

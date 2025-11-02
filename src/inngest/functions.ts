@@ -24,6 +24,28 @@ import {
   PROJECT_NAME_PLACEHOLDER,
   PROJECT_NAME_PROMPT,
 } from "@/modules/projects/constants";
+import { withProjectAction } from "@/modules/projects/server/actions";
+
+function truncateMiddle(value: string, maxLength = 80): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const half = Math.floor((maxLength - 3) / 2);
+  return `${value.slice(0, half)}...${value.slice(value.length - half)}`;
+}
+
+function summarizeFiles(files: string[], verb: string): string {
+  if (files.length === 0) {
+    return `${verb} files`;
+  }
+
+  if (files.length === 1) {
+    return `${verb} ${files[0]}`;
+  }
+
+  return `${verb} ${files.length} files`;
+}
 
 interface AgentState {
   summary: string;
@@ -82,29 +104,51 @@ export const codeAgentFunction = inngest.createFunction(
             command: z.string(),
           }),
           handler: async ({ command }, { step }) => {
-            return await step?.run("terminal", async () => {
-              const buffers = {
-                stdout: "",
-                stderr: "",
-              };
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const result = await sandbox.commands.run(command, {
-                  onStdout: (data: string) => {
-                    buffers.stdout += data;
-                  },
-                  onStderr: (data: string) => {
-                    buffers.stderr += data;
-                  },
-                });
-                return result.stdout;
-              } catch (e) {
-                console.error(
-                  `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`,
-                );
-                return `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`;
-              }
-            });
+            const normalizedCommand = command.trim().length
+              ? command.trim()
+              : command;
+
+            try {
+              return await withProjectAction({
+                projectId: event.data.projectId,
+                actionKey: "terminal",
+                label: `Running command: ${truncateMiddle(normalizedCommand)}`,
+                metadata: { command },
+                run: async () => {
+                  const buffers = {
+                    stdout: "",
+                    stderr: "",
+                  };
+
+                  try {
+                    const execute = async () => {
+                      const sandbox = await getSandbox(sandboxId);
+                      const result = await sandbox.commands.run(command, {
+                        onStdout: (data: string) => {
+                          buffers.stdout += data;
+                        },
+                        onStderr: (data: string) => {
+                          buffers.stderr += data;
+                        },
+                      });
+                      return result.stdout;
+                    };
+
+                    if (step) {
+                      return await step.run("terminal", execute);
+                    }
+
+                    return await execute();
+                  } catch (error) {
+                    const message = `Command failed: ${error} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`;
+                    console.error(message);
+                    throw new Error(message);
+                  }
+                },
+              });
+            } catch (error) {
+              return error instanceof Error ? error.message : String(error);
+            }
           },
         }),
         createTool({
@@ -119,30 +163,51 @@ export const codeAgentFunction = inngest.createFunction(
             ),
           }),
           handler: async (
-            { files }, 
-            { step, network }: Tool.Options<AgentState>
+            { files },
+            { step, network }: Tool.Options<AgentState>,
           ) => {
-            const newFiles = await step?.run("createOrUpdateFiles", async () => {
-              try {
-                const updatedFiles = network.state.data.files || {};
-                const sandbox = await getSandbox(sandboxId);
-                for (const file of files) {
-                  await sandbox.files.write(file.path, file.content);
-                  updatedFiles[file.path] = file.content;
-                }
+            const label = summarizeFiles(
+              files.map((file) => file.path),
+              "Updating",
+            );
 
-                return updatedFiles;
+            try {
+              const updated = await withProjectAction({
+                projectId: event.data.projectId,
+                actionKey: "createOrUpdateFiles",
+                label,
+                metadata: { files: files.map((file) => file.path) },
+                run: async () => {
+                  const execute = async () => {
+                    const updatedFiles = network.state.data.files || {};
+                    const sandbox = await getSandbox(sandboxId);
 
-              } catch (e) {
-                console.error(
-                  `Failed to create or update files: ${e}`,
-                );
-                return `Failed to create or update files: ${e}`;
+                    for (const file of files) {
+                      await sandbox.files.write(file.path, file.content);
+                      updatedFiles[file.path] = file.content;
+                    }
+
+                    return updatedFiles;
+                  };
+
+                  if (step) {
+                    return await step.run("createOrUpdateFiles", execute);
+                  }
+
+                  return await execute();
+                },
+              });
+
+              if (typeof updated === "object" && updated !== null) {
+                network.state.data.files = updated as Record<string, string>;
               }
-            });
 
-            if (typeof newFiles === "object") {
-              network.state.data.files = newFiles;
+              return updated;
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.error(message);
+              return message;
             }
           },
         }),
@@ -153,25 +218,47 @@ export const codeAgentFunction = inngest.createFunction(
             files: z.array(z.string()),
           }),
           handler: async ({ files }, { step }) => {
-            return await step?.run("readFiles", async () => {
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const contents = [];
-                for (const file of files) {
-                  const content = await sandbox.files.read(file);
-                  contents.push({
-                    path: file,
-                    content,
-                  });
-                }
-                return JSON.stringify(contents);
-              } catch (e) {
-                console.error(
-                  `Failed to read files: ${e}`,
-                );
-                return `Failed to read files: ${e}`;
-              }
-            });
+            const label = summarizeFiles(files, "Reading");
+
+            try {
+              return await withProjectAction({
+                projectId: event.data.projectId,
+                actionKey: "readFiles",
+                label,
+                metadata: { files },
+                run: async () => {
+                  const execute = async () => {
+                    try {
+                      const sandbox = await getSandbox(sandboxId);
+                      const contents = [];
+                      for (const file of files) {
+                        const content = await sandbox.files.read(file);
+                        contents.push({
+                          path: file,
+                          content,
+                        });
+                      }
+                      return JSON.stringify(contents);
+                    } catch (error) {
+                      const message = `Failed to read files: ${error}`;
+                      console.error(message);
+                      throw new Error(message);
+                    }
+                  };
+
+                  if (step) {
+                    return await step.run("readFiles", execute);
+                  }
+
+                  return await execute();
+                },
+              });
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.error(message);
+              return message;
+            }
           },
         }),
       ],

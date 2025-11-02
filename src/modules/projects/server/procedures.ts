@@ -8,6 +8,7 @@ import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { inngest } from '@/inngest/client';
 import { MODEL_IDS } from "@/modules/models/constants";
 import { PROJECT_NAME_PLACEHOLDER } from "@/modules/projects/constants";
+import { ProjectActionStatus } from "@/generated/prisma";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -98,6 +99,33 @@ export const projectsRouter = createTRPCRouter({
             totalFragments,
             latestProject,
         };
+    }),
+
+    getActiveActions: companyProcedure
+    .input(z.object({
+        projectId: z.string().min(1, { message: "Project ID is required" }),
+    }))
+    .query(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.projectId },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        const actions = await prisma.projectAction.findMany({
+            where: {
+                projectId: input.projectId,
+                status: { in: [ProjectActionStatus.RUNNING] },
+            },
+            orderBy: {
+                createdAt: "asc",
+            },
+        });
+
+        return { actions };
     }),
 
     create: companyProcedure
