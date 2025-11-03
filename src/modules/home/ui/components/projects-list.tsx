@@ -7,9 +7,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type MouseEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTRPC } from "@/trpc/client";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2Icon, TrashIcon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 
 const formatPossessive = (name: string) => {
     const trimmed = name.trim();
@@ -25,7 +27,11 @@ const formatPossessive = (name: string) => {
 export const ProjectsList = () => {
     const trpc = useTRPC();
     const queryClient = useQueryClient();
-    const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+    const [projectPendingDeletion, setProjectPendingDeletion] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const { data: projects, isLoading: isLoadingProjects } = useQuery(
         trpc.projects.getMany.queryOptions(),
     );
@@ -33,37 +39,43 @@ export const ProjectsList = () => {
 
     const deleteProject = useMutation(
         trpc.projects.delete.mutationOptions({
-            onMutate: async (variables) => {
-                setDeletingProjectId(variables.id);
-            },
             onSuccess: () => {
                 queryClient.invalidateQueries(trpc.projects.getMany.queryOptions());
+                queryClient.invalidateQueries(trpc.projects.getOverview.queryOptions());
                 toast.success("Project deleted successfully");
+                setIsConfirmOpen(false);
+                setProjectPendingDeletion(null);
             },
             onError: (error) => {
                 toast.error(error.message);
             },
-            onSettled: () => {
-                setDeletingProjectId(null);
-            },
         }),
     );
 
-    const handleDeleteClick = (projectId: string, projectName: string) => async (
+    const handleDeleteClick = (projectId: string, projectName: string) => (
         event: MouseEvent<HTMLButtonElement>,
     ) => {
         event.preventDefault();
         event.stopPropagation();
 
-        const confirmed = window.confirm(
-            `Delete project "${projectName}"? This action cannot be undone.`,
-        );
+        setProjectPendingDeletion({ id: projectId, name: projectName });
+        setIsConfirmOpen(true);
+    };
 
-        if (!confirmed) {
+    const handleConfirmDelete = async () => {
+        if (!projectPendingDeletion) {
             return;
         }
 
-        await deleteProject.mutateAsync({ id: projectId });
+        await deleteProject.mutateAsync({ id: projectPendingDeletion.id });
+    };
+
+    const handleDialogOpenChange = (open: boolean) => {
+        if (!open && !deleteProject.isPending) {
+            setProjectPendingDeletion(null);
+        }
+
+        setIsConfirmOpen(open);
     };
 
     const projectCountLabel = isLoadingProjects
@@ -88,7 +100,7 @@ export const ProjectsList = () => {
                     <div key={project.id} className="relative group">
                         <Button
                             variant="outline"
-                            className="font-normal h-auto justify-start w-full text-start p-4 pr-12"
+                            className="font-normal h-auto justify-start w-full text-start rounded-2xl border-white/25 bg-white/60 p-4 pb-14 pr-5 text-base shadow-lg shadow-black/5 transition-colors hover:bg-white/70 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-white/10 dark:bg-neutral-900/70 dark:hover:bg-neutral-900 dark:supports-[backdrop-filter]:bg-neutral-900/60"
                             asChild
                         >
                             <Link href={`/projects/${project.id}`}>
@@ -113,20 +125,37 @@ export const ProjectsList = () => {
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                            className={cn(
+                                "absolute bottom-4 right-4 z-10 flex size-10 items-center justify-center rounded-full border border-white/30 bg-white/65 text-destructive opacity-0 shadow-md shadow-black/10 transition-all duration-200 hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-destructive/30 group-hover:opacity-100 supports-[backdrop-filter]:backdrop-blur dark:border-white/10 dark:bg-neutral-900/70",
+                                projectPendingDeletion?.id === project.id
+                                    ? "opacity-100"
+                                    : "translate-y-2 group-hover:translate-y-0",
+                            )}
                             onClick={handleDeleteClick(project.id, project.name)}
-                            disabled={deleteProject.isPending && deletingProjectId === project.id}
+                            disabled={deleteProject.isPending}
                             aria-label={`Delete ${project.name}`}
                         >
-                            {deleteProject.isPending && deletingProjectId === project.id ? (
-                                <Loader2Icon className="size-4 animate-spin" />
-                            ) : (
-                                <TrashIcon className="size-4" />
-                            )}
+                            <Trash2Icon className="size-4" />
                         </Button>
                     </div>
                 ))}
             </div>
+            <ConfirmDialog
+                open={isConfirmOpen}
+                onOpenChange={handleDialogOpenChange}
+                title="Delete project"
+                description={
+                    projectPendingDeletion
+                        ? `Are you sure you want to delete "${projectPendingDeletion.name}"? This action cannot be undone.`
+                        : "Are you sure you want to delete this project? This action cannot be undone."
+                }
+                confirmLabel="Delete project"
+                cancelLabel="Keep project"
+                isLoading={deleteProject.isPending}
+                tone="destructive"
+                icon={<Trash2Icon className="size-5" />}
+                onConfirm={handleConfirmDelete}
+            />
         </div>
     );
 };

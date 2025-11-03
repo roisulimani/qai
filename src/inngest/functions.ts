@@ -413,7 +413,7 @@ export const generateProjectNameFunction = inngest.createFunction(
       return;
     }
 
-    const projectName = await step.run("generate-project-name", async () => {
+    const initialName = await step.run("generate-project-name", async () => {
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
@@ -441,78 +441,153 @@ export const generateProjectNameFunction = inngest.createFunction(
         throw new Error(`Failed to generate project name: ${errorText}`);
       }
 
-      const payload = (await response.json()) as {
-        output_text?: string[];
-        output?: Array<
-          | {
-              content?: Array<{ text?: string }>;
-            }
-          | string
-        >;
-      };
-
-      const combinedText = Array.isArray(payload.output_text)
-        ? payload.output_text.join(" ")
-        : Array.isArray(payload.output)
-          ? payload.output
-              .map((item) => {
-                if (typeof item === "string") {
-                  return item;
-                }
-                const content = item?.content;
-                if (!Array.isArray(content)) {
-                  return "";
-                }
-                return content
-                  .map((segment) => (typeof segment.text === "string" ? segment.text : ""))
-                  .join(" ");
-              })
-              .join(" ")
-          : "";
-
-      const cleaned = combinedText
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line.length > 0);
-
-      if (!cleaned) {
-        return null;
-      }
-
-      const sanitized = cleaned
-        .replace(/^[-"'\s]+/, "")
-        .replace(/[-"'\s]+$/, "")
-        .trim();
-
-      if (!sanitized) {
-        return null;
-      }
-
-      const limitedToFourWords = sanitized
-        .split(/\s+/)
-        .filter((word) => word.length > 0)
-        .slice(0, 4)
-        .join(" ");
-
-      if (!limitedToFourWords) {
-        return null;
-      }
-
-      return limitedToFourWords.slice(0, 80);
+      const payload = (await response.json()) as OpenAIResponsePayload;
+      const rawResult = extractTextFromResponse(payload);
+      return sanitizeProjectName(rawResult);
     });
 
-    if (!projectName) {
+    if (!initialName) {
+      return;
+    }
+
+    const finalName = await step.run("enforce-four-word-limit", async () => {
+      const enforced = await ensureFourWordLimit({
+        apiKey,
+        candidate: initialName,
+      });
+
+      return enforced;
+    });
+
+    if (!finalName) {
       return;
     }
 
     await step.run("store-project-name", async () => {
       await prisma.project.update({
         where: { id: project.id },
-        data: { name: projectName },
+        data: { name: finalName },
       });
     });
   },
 );
+
+type OpenAIResponsePayload = {
+  output_text?: string[];
+  output?: Array<
+    | {
+        content?: Array<{ text?: string }>;
+      }
+    | string
+  >;
+};
+
+const extractTextFromResponse = (
+  payload: OpenAIResponsePayload,
+): string | null => {
+  const combinedText = Array.isArray(payload.output_text)
+    ? payload.output_text.join(" ")
+    : Array.isArray(payload.output)
+      ? payload.output
+          .map((item) => {
+            if (typeof item === "string") {
+              return item;
+            }
+            const content = item?.content;
+            if (!Array.isArray(content)) {
+              return "";
+            }
+            return content
+              .map((segment) => (typeof segment.text === "string" ? segment.text : ""))
+              .join(" ");
+          })
+          .join(" ")
+      : "";
+
+  if (!combinedText) {
+    return null;
+  }
+
+  return (
+    combinedText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? null
+  );
+};
+
+const sanitizeProjectName = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const sanitized = value
+    .replace(/^[-"'\s]+/, "")
+    .replace(/[-"'\s]+$/, "")
+    .trim();
+
+  if (!sanitized) {
+    return null;
+  }
+
+  return sanitized.slice(0, 80);
+};
+
+const countWords = (value: string): number =>
+  value.split(/\s+/).filter((word) => word.length > 0).length;
+
+const ensureFourWordLimit = async ({
+  apiKey,
+  candidate,
+}: {
+  apiKey: string;
+  candidate: string;
+}): Promise<string | null> => {
+  if (countWords(candidate) <= 4) {
+    return candidate;
+  }
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: PROJECT_NAME_MODEL,
+        input: [
+          {
+            role: "system",
+            content:
+              "You refine software project names. Rewrite the provided name so it stays natural, polished, and contains no more than four words. Avoid punctuation other than spaces.",
+          },
+          {
+            role: "user",
+            content: `Original project name: "${candidate}"`,
+          },
+        ],
+        max_output_tokens: 60,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to refine project name: ${errorText}`);
+    }
+
+    const payload = (await response.json()) as OpenAIResponsePayload;
+    const refined = sanitizeProjectName(extractTextFromResponse(payload));
+
+    if (refined && countWords(refined) <= 4) {
+      return refined;
+    }
+  } catch (error) {
+    console.warn("Failed to enforce four-word limit", error);
+  }
+
+  return null;
+};
 
 function toFileRecord(
   value: Fragment["files"] | undefined | null,
