@@ -32,7 +32,7 @@ const primaryChannels = [
         label: contactProfile.phone,
         description: "For immediate collaboration needs, call to align on requirements and next steps.",
         href: `tel:${phoneLink}`,
-        badge: "Voice support",
+        badge: "Call me",
         actionText: "Start a call",
     },
     {
@@ -74,7 +74,7 @@ const ContactPage = () => {
                             <p className="text-xs uppercase tracking-wide text-muted-foreground">Let&apos;s build together</p>
                             <h1 className="text-3xl font-semibold sm:text-4xl">Connect with {contactProfile.name}</h1>
                             <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                                I partner with operations, product, and engineering teams to orchestrate reliable AI automations. Reach out when you&apos;re ready to discuss delivery timelines, integrations, or onboarding support.
+                                I build AI-powered automations and full-stack tools that remove manual busywork. Let&apos;s connect to scope your next product, workflow, or experiment.
                             </p>
                         </div>
                         <div className="rounded-2xl border border-white/20 bg-white/70 px-5 py-4 text-sm shadow-inner shadow-black/5 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-neutral-900/70">
