@@ -3,19 +3,18 @@ import Link from "next/link";
 import { SiteHeader } from "@/modules/home/ui/components/site-header";
 
 const contactProfile = {
-    name: "Roi Suliman",
+    name: "Roi Sulimani",
     title: "Founder & Automation Architect, QAI",
     email: "roi.sul@aol.com",
-    phone: "+972-52-526-1184",
-    whatsapp: "https://wa.me/972525261184",
-    calendly: "https://cal.com/roi-suliman",
-    linkedin: "https://www.linkedin.com/in/roi-suliman",
-    github: "https://github.com/roisul",
-    location: "Tel Aviv-Yafo, Israel",
-    timezone: "Israel Standard Time (UTC+3)",
+    phone: "+972-508364229",
+    linkedin: "https://www.linkedin.com/in/roi-sulimani-b2b29b191",
+    location: "Israel",
+    timezone: "Israel Standard Time (UTC+2 / UTC+3 DST)",
     languages: "English, Hebrew",
-    responseTime: "Replies within 24 hours",
+    responseTime: "Typically replies within one business day",
 };
+
+const phoneLink = contactProfile.phone.replace(/[^0-9+]/g, "");
 
 const primaryChannels = [
     {
@@ -24,20 +23,23 @@ const primaryChannels = [
         description: "Send product questions, partnership ideas, or investor notes directly to my inbox.",
         href: `mailto:${contactProfile.email}`,
         badge: "Direct line",
+        actionText: "Compose email",
     },
     {
-        title: "WhatsApp",
+        title: "Phone",
         label: contactProfile.phone,
-        description: "For urgent updates or quick coordination, message me on WhatsApp.",
-        href: contactProfile.whatsapp,
-        badge: "Instant replies",
+        description: "For immediate collaboration needs, call to align on requirements and next steps.",
+        href: `tel:${phoneLink}`,
+        badge: "Voice support",
+        actionText: "Start a call",
     },
     {
-        title: "Book a call",
-        label: "Schedule via Cal.com",
-        description: "Pick a time for a deep dive into automation roadmaps or delivery planning.",
-        href: contactProfile.calendly,
-        badge: "30-minute slots",
+        title: "LinkedIn",
+        label: "linkedin.com/in/roi-sulimani-b2b29b191",
+        description: "Connect for collaboration updates, product launches, and industry insights.",
+        href: contactProfile.linkedin,
+        badge: "Professional network",
+        actionText: "Visit profile",
     },
 ];
 
@@ -46,11 +48,6 @@ const secondaryChannels = [
         title: "LinkedIn",
         href: contactProfile.linkedin,
         description: "Follow product announcements, hiring updates, and collaboration opportunities.",
-    },
-    {
-        title: "GitHub",
-        href: contactProfile.github,
-        description: "Review open-source tooling and sample automations I maintain for QAI projects.",
     },
 ];
 
@@ -102,7 +99,7 @@ const ContactPage = () => {
                                 <span className="block text-sm text-muted-foreground">{channel.description}</span>
                             </div>
                             <span className="mt-6 inline-flex items-center gap-1 text-xs text-primary">
-                                {channel.title === "Book a call" ? "Open scheduling" : "Start conversation"}
+                                {channel.actionText}
                                 <svg aria-hidden className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M13.172 12L8.222 7.05l1.414-1.414L16 12l-6.364 6.364-1.414-1.414z" />
                                 </svg>
@@ -115,7 +112,7 @@ const ContactPage = () => {
                     <div className="rounded-3xl border border-white/20 bg-white/60 p-6 text-sm shadow-xl shadow-black/10 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-white/10 dark:bg-neutral-900/60">
                         <h2 className="text-lg font-semibold">Availability</h2>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            I work across EMEA and US time zones. For planned initiatives, booking a slot ensures I can prepare the right materials and teammates.
+                            I collaborate across EMEA and US time zones. Reach out and we&apos;ll coordinate a time that works best for your team.
                         </p>
                         <dl className="mt-5 space-y-3">
                             {availability.map((item) => (
