@@ -488,7 +488,17 @@ export const generateProjectNameFunction = inngest.createFunction(
         return null;
       }
 
-      return sanitized.slice(0, 80);
+      const limitedWords = sanitized
+        .split(/\s+/)
+        .filter((word) => word.length > 0)
+        .slice(0, 4)
+        .join(" ");
+
+      if (!limitedWords) {
+        return null;
+      }
+
+      return limitedWords.slice(0, 80);
     });
 
     if (!projectName) {
