@@ -15,6 +15,8 @@ const contactProfile = {
 };
 
 const phoneLink = contactProfile.phone.replace(/[^0-9+]/g, "");
+const whatsappNumber = phoneLink.replace("+", "");
+const whatsappLink = `https://wa.me/${whatsappNumber}`;
 
 const primaryChannels = [
     {
@@ -34,12 +36,12 @@ const primaryChannels = [
         actionText: "Start a call",
     },
     {
-        title: "LinkedIn",
-        label: "linkedin.com/in/roi-sulimani-b2b29b191",
-        description: "Connect for collaboration updates, product launches, and industry insights.",
-        href: contactProfile.linkedin,
-        badge: "Professional network",
-        actionText: "Visit profile",
+        title: "WhatsApp",
+        label: `wa.me/${whatsappNumber}`,
+        description: "Start a WhatsApp chat for quick updates, clarifications, or coordination on next steps.",
+        href: whatsappLink,
+        badge: "Instant messaging",
+        actionText: "Open chat",
     },
 ];
 
