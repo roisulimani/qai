@@ -171,7 +171,7 @@ export const ProjectForm = () => {
 
                 {shouldShowOutOfCredits && (
                     <div className="rounded-xl border border-dashed border-destructive/50 bg-destructive/5 p-3 text-xs text-destructive">
-                        You are out of credits. Reach out to Lior for more access to QAI.
+                        You are out of credits. Reach out to Roi for more access to QAI.
                     </div>
                 )}
 
