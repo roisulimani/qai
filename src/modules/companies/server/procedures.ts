@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { eachDayOfInterval, startOfDay } from "date-fns";
+
 import { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import { hashAccessCode } from "@/lib/auth";
@@ -100,6 +102,218 @@ export const companiesRouter = createTRPCRouter({
 
     return { success: true } as const;
   }),
+
+  getUsageAnalytics: companyProcedure
+    .input(
+      z
+        .object({
+          rangeInDays: z.coerce.number().int().min(7).max(90).default(30),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const rangeInDays = input?.rangeInDays ?? 30;
+      const today = startOfDay(new Date());
+      const rangeStart = startOfDay(
+        new Date(today.getTime() - (rangeInDays - 1) * 24 * 60 * 60 * 1000),
+      );
+
+      const [transactions, projects, messages, fragments] = await prisma.$transaction([
+        prisma.creditTransaction.findMany({
+          where: {
+            companyId: ctx.company.id,
+            createdAt: { gte: rangeStart },
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.project.findMany({
+          where: {
+            companyId: ctx.company.id,
+            createdAt: { gte: rangeStart },
+          },
+          select: { id: true, createdAt: true },
+        }),
+        prisma.message.findMany({
+          where: {
+            project: {
+              companyId: ctx.company.id,
+            },
+            createdAt: { gte: rangeStart },
+          },
+          select: { id: true, createdAt: true },
+        }),
+        prisma.fragment.findMany({
+          where: {
+            message: {
+              project: {
+                companyId: ctx.company.id,
+              },
+            },
+            createdAt: { gte: rangeStart },
+          },
+          select: { id: true, createdAt: true },
+        }),
+      ]);
+
+      const days = eachDayOfInterval({ start: rangeStart, end: today });
+      const timelineMap = new Map(
+        days.map((date) => {
+          const key = date.toISOString().slice(0, 10);
+          return [
+            key,
+            {
+              date: date.toISOString(),
+              creditsSpent: 0,
+              creditsGranted: 0,
+              projectsCreated: 0,
+              messagesCreated: 0,
+              fragmentsGenerated: 0,
+            },
+          ] as const;
+        }),
+      );
+
+      let totalCreditsSpent = 0;
+      let totalCreditsGranted = 0;
+      const reasonTotals = new Map<
+        string,
+        { totalAmount: number; count: number }
+      >();
+
+      for (const transaction of transactions) {
+        const key = transaction.createdAt.toISOString().slice(0, 10);
+        const entry = timelineMap.get(key);
+        if (!entry) {
+          continue;
+        }
+
+        if (transaction.amount < 0) {
+          const amount = Math.abs(transaction.amount);
+          entry.creditsSpent += amount;
+          totalCreditsSpent += amount;
+
+          const reasonEntry = reasonTotals.get(transaction.reason) ?? {
+            totalAmount: 0,
+            count: 0,
+          };
+          reasonEntry.totalAmount += amount;
+          reasonEntry.count += 1;
+          reasonTotals.set(transaction.reason, reasonEntry);
+        } else {
+          entry.creditsGranted += transaction.amount;
+          totalCreditsGranted += transaction.amount;
+        }
+      }
+
+      for (const project of projects) {
+        const key = project.createdAt.toISOString().slice(0, 10);
+        const entry = timelineMap.get(key);
+        if (entry) {
+          entry.projectsCreated += 1;
+        }
+      }
+
+      for (const message of messages) {
+        const key = message.createdAt.toISOString().slice(0, 10);
+        const entry = timelineMap.get(key);
+        if (entry) {
+          entry.messagesCreated += 1;
+        }
+      }
+
+      for (const fragment of fragments) {
+        const key = fragment.createdAt.toISOString().slice(0, 10);
+        const entry = timelineMap.get(key);
+        if (entry) {
+          entry.fragmentsGenerated += 1;
+        }
+      }
+
+      const recentTransactions = transactions
+        .slice(0, 100)
+        .map((transaction) => ({
+          id: transaction.id,
+          amount: transaction.amount,
+          reason: transaction.reason,
+          createdAt: transaction.createdAt.toISOString(),
+          metadata: transaction.metadata,
+        }));
+
+      const projectIds = Array.from(
+        new Set(
+          recentTransactions
+            .map((transaction) => {
+              const metadata = transaction.metadata;
+              if (
+                metadata &&
+                typeof metadata === "object" &&
+                "projectId" in metadata &&
+                typeof metadata.projectId === "string"
+              ) {
+                return metadata.projectId;
+              }
+              return null;
+            })
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      let projectNames = new Map<string, string>();
+      if (projectIds.length > 0) {
+        const relatedProjects = await prisma.project.findMany({
+          where: { id: { in: projectIds } },
+          select: { id: true, name: true },
+        });
+
+        projectNames = new Map(
+          relatedProjects.map((project) => [project.id, project.name] as const),
+        );
+      }
+
+      return {
+        range: {
+          start: rangeStart.toISOString(),
+          end: today.toISOString(),
+        },
+        totals: {
+          creditsSpent: totalCreditsSpent,
+          creditsGranted: totalCreditsGranted,
+          projectsCreated: projects.length,
+          messagesCreated: messages.length,
+          fragmentsGenerated: fragments.length,
+          netCredits: totalCreditsGranted - totalCreditsSpent,
+        },
+        timeline: Array.from(timelineMap.values()),
+        reasons: Array.from(reasonTotals.entries())
+          .map(([reason, details]) => ({
+            reason,
+            totalAmount: details.totalAmount,
+            count: details.count,
+          }))
+          .sort((a, b) => b.totalAmount - a.totalAmount)
+          .slice(0, 6),
+        recentTransactions: recentTransactions.map((transaction) => {
+          let projectName: string | null = null;
+          const metadata = transaction.metadata;
+          if (
+            metadata &&
+            typeof metadata === "object" &&
+            "projectId" in metadata &&
+            typeof metadata.projectId === "string"
+          ) {
+            projectName = projectNames.get(metadata.projectId) ?? null;
+          }
+
+          return {
+            id: transaction.id,
+            amount: transaction.amount,
+            reason: transaction.reason,
+            createdAt: transaction.createdAt,
+            projectName,
+          };
+        }),
+      };
+    }),
 
   adminList: adminProcedure.query(async () => {
     const companies = await prisma.company.findMany({
