@@ -17,7 +17,11 @@ import {
   computeRollingConversationSummary,
   loadProjectConversationContext,
 } from "./conversation";
-import type { Fragment } from "@/generated/prisma";
+import { AgentActionKey, type Fragment } from "@/generated/prisma";
+import {
+  resetAgentActions,
+  runTrackedAgentAction,
+} from "@/modules/projects/server/agent-actions";
 import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
 import {
   PROJECT_NAME_MODEL,
@@ -35,13 +39,20 @@ export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
   { event: "code-agent/run" },
   async ({ event, step }) => {
+    const projectId = event.data.projectId;
+
+    await resetAgentActions(projectId);
+
     const {
       projectSummary,
       messages,
       latestFragment,
       latestUserMessage,
-    } = await step.run("load-conversation-context", async () => {
-      return await loadProjectConversationContext(event.data.projectId);
+    } = await runTrackedAgentAction({
+      step,
+      projectId,
+      key: AgentActionKey.LOAD_CONVERSATION_CONTEXT,
+      handler: () => loadProjectConversationContext(projectId),
     });
 
     const latestFragmentFiles = toFileRecord(latestFragment?.files);
@@ -51,17 +62,39 @@ export const codeAgentFunction = inngest.createFunction(
         ? (event.data.model as (typeof MODEL_IDS)[number])
         : DEFAULT_MODEL;
 
-    const sandboxId = await step.run("get-sandbox-id", async () => {
-      const sandbox = await Sandbox.create("qai-nextjs-t4");
-      return sandbox.sandboxId;
+    await runTrackedAgentAction({
+      step,
+      projectId,
+      key: AgentActionKey.INITIALIZE,
+      detail: `Using ${requestedModel}`,
+      metadata: { model: requestedModel },
+      handler: async () => {},
+    });
+
+    const sandboxId = await runTrackedAgentAction({
+      step,
+      projectId,
+      key: AgentActionKey.GET_SANDBOX_ID,
+      handler: async () => {
+        const sandbox = await Sandbox.create("qai-nextjs-t4");
+        return sandbox.sandboxId;
+      },
     });
 
     if (latestFragmentFiles) {
-      await step.run("hydrate-sandbox", async () => {
-        const sandbox = await getSandbox(sandboxId);
-        for (const [path, content] of Object.entries(latestFragmentFiles)) {
-          await sandbox.files.write(path, content);
-        }
+      const filePaths = Object.keys(latestFragmentFiles);
+      await runTrackedAgentAction({
+        step,
+        projectId,
+        key: AgentActionKey.HYDRATE_SANDBOX,
+        detail: summarizeFileList(filePaths),
+        metadata: { fileCount: filePaths.length, files: filePaths },
+        handler: async () => {
+          const sandbox = await getSandbox(sandboxId);
+          for (const [path, content] of Object.entries(latestFragmentFiles)) {
+            await sandbox.files.write(path, content);
+          }
+        },
       });
     }
     // Create a new agent with a system prompt
@@ -82,28 +115,43 @@ export const codeAgentFunction = inngest.createFunction(
             command: z.string(),
           }),
           handler: async ({ command }, { step }) => {
-            return await step?.run("terminal", async () => {
-              const buffers = {
-                stdout: "",
-                stderr: "",
-              };
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const result = await sandbox.commands.run(command, {
-                  onStdout: (data: string) => {
-                    buffers.stdout += data;
-                  },
-                  onStderr: (data: string) => {
-                    buffers.stderr += data;
-                  },
-                });
-                return result.stdout;
-              } catch (e) {
-                console.error(
-                  `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`,
-                );
-                return `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`;
-              }
+            return await runTrackedAgentAction({
+              step,
+              projectId,
+              key: AgentActionKey.TERMINAL,
+              detail: command,
+              metadata: { command },
+              handler: async () => {
+                const buffers = {
+                  stdout: "",
+                  stderr: "",
+                };
+                try {
+                  const sandbox = await getSandbox(sandboxId);
+                  const result = await sandbox.commands.run(command, {
+                    onStdout: (data: string) => {
+                      buffers.stdout += data;
+                    },
+                    onStderr: (data: string) => {
+                      buffers.stderr += data;
+                    },
+                  });
+                  return result.stdout;
+                } catch (e) {
+                  console.error(
+                    `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`,
+                  );
+                  return `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`;
+                }
+              },
+              onComplete: (result) => {
+                if (
+                  typeof result === "string" &&
+                  result.startsWith("Command failed")
+                ) {
+                  return { detail: "Command failed" };
+                }
+              },
             });
           },
         }),
@@ -119,26 +167,38 @@ export const codeAgentFunction = inngest.createFunction(
             ),
           }),
           handler: async (
-            { files }, 
+            { files },
             { step, network }: Tool.Options<AgentState>
           ) => {
-            const newFiles = await step?.run("createOrUpdateFiles", async () => {
-              try {
-                const updatedFiles = network.state.data.files || {};
-                const sandbox = await getSandbox(sandboxId);
-                for (const file of files) {
-                  await sandbox.files.write(file.path, file.content);
-                  updatedFiles[file.path] = file.content;
+            const filePaths = files.map((file) => file.path);
+            const newFiles = await runTrackedAgentAction({
+              step,
+              projectId,
+              key: AgentActionKey.CREATE_OR_UPDATE_FILES,
+              detail: summarizeFileList(filePaths),
+              metadata: { files: filePaths },
+              handler: async () => {
+                try {
+                  const updatedFiles = network.state.data.files || {};
+                  const sandbox = await getSandbox(sandboxId);
+                  for (const file of files) {
+                    await sandbox.files.write(file.path, file.content);
+                    updatedFiles[file.path] = file.content;
+                  }
+
+                  return updatedFiles;
+                } catch (e) {
+                  console.error(
+                    `Failed to create or update files: ${e}`,
+                  );
+                  return `Failed to create or update files: ${e}`;
                 }
-
-                return updatedFiles;
-
-              } catch (e) {
-                console.error(
-                  `Failed to create or update files: ${e}`,
-                );
-                return `Failed to create or update files: ${e}`;
-              }
+              },
+              onComplete: (result) => {
+                if (typeof result === "string") {
+                  return { detail: result };
+                }
+              },
             });
 
             if (typeof newFiles === "object") {
@@ -153,24 +213,36 @@ export const codeAgentFunction = inngest.createFunction(
             files: z.array(z.string()),
           }),
           handler: async ({ files }, { step }) => {
-            return await step?.run("readFiles", async () => {
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const contents = [];
-                for (const file of files) {
-                  const content = await sandbox.files.read(file);
-                  contents.push({
-                    path: file,
-                    content,
-                  });
+            return await runTrackedAgentAction({
+              step,
+              projectId,
+              key: AgentActionKey.READ_FILES,
+              detail: summarizeFileList(files),
+              metadata: { files },
+              handler: async () => {
+                try {
+                  const sandbox = await getSandbox(sandboxId);
+                  const contents = [];
+                  for (const file of files) {
+                    const content = await sandbox.files.read(file);
+                    contents.push({
+                      path: file,
+                      content,
+                    });
+                  }
+                  return JSON.stringify(contents);
+                } catch (e) {
+                  console.error(
+                    `Failed to read files: ${e}`,
+                  );
+                  return `Failed to read files: ${e}`;
                 }
-                return JSON.stringify(contents);
-              } catch (e) {
-                console.error(
-                  `Failed to read files: ${e}`,
-                );
-                return `Failed to read files: ${e}`;
-              }
+              },
+              onComplete: (result) => {
+                if (typeof result === "string" && result.startsWith("Failed")) {
+                  return { detail: result };
+                }
+              },
             });
           },
         }),
@@ -218,58 +290,75 @@ export const codeAgentFunction = inngest.createFunction(
       userInput: event.data.value,
     });
 
-    const result = await network.run(conversationPayload);
+    const result = await runTrackedAgentAction({
+      projectId,
+      key: AgentActionKey.NETWORK_RUN,
+      detail: `Model: ${requestedModel}`,
+      metadata: { model: requestedModel },
+      handler: () => network.run(conversationPayload),
+    });
 
     const isError =
       !result.state.data.summary ||
       Object.keys(result.state.data.files || {}).length === 0;
 
-    const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const sandbox = await getSandbox(sandboxId);
-      const host = sandbox.getHost(3000);
-      return `https://${host}`;
+    const sandboxUrl = await runTrackedAgentAction({
+      step,
+      projectId,
+      key: AgentActionKey.GET_SANDBOX_URL,
+      handler: async () => {
+        const sandbox = await getSandbox(sandboxId);
+        const host = sandbox.getHost(3000);
+        return `https://${host}`;
+      },
     });
 
-    await step.run("save-result", async () => {
-      if (isError) {
-        return await prisma.message.create({
+    await runTrackedAgentAction({
+      step,
+      projectId,
+      key: AgentActionKey.SAVE_RESULT,
+      handler: async () => {
+        if (isError) {
+          return await prisma.message.create({
+            data: {
+              projectId,
+              content: "Something went wrong. Please try again.",
+              role: "ASSISTANT",
+              type: "ERROR",
+            },
+          });
+        }
+
+        const assistantMessage = await prisma.message.create({
           data: {
-            projectId: event.data.projectId,
-            content: "Something went wrong. Please try again.",
+            projectId,
+            content: result.state.data.summary,
             role: "ASSISTANT",
-            type: "ERROR",
-          },
-        });
-      }
-      const assistantMessage = await prisma.message.create({
-        data: {
-          projectId: event.data.projectId,
-          content: result.state.data.summary,
-          role: "ASSISTANT",
-          type: "RESULT",
-          fragment: {
-            create: {
-              sandboxUrl: sandboxUrl,
-              title: "Fragmented UI Coding Agent",
-              files: result.state.data.files,
-              summary: result.state.data.summary,
+            type: "RESULT",
+            fragment: {
+              create: {
+                sandboxUrl,
+                title: "Fragmented UI Coding Agent",
+                files: result.state.data.files,
+                summary: result.state.data.summary,
+              },
             },
           },
-        },
-      });
+        });
 
-      const updatedSummary = computeRollingConversationSummary({
-        previousSummary: projectSummary,
-        userMessage: event.data.value,
-        assistantMessage: result.state.data.summary ?? "",
-      });
+        const updatedSummary = computeRollingConversationSummary({
+          previousSummary: projectSummary,
+          userMessage: event.data.value,
+          assistantMessage: result.state.data.summary ?? "",
+        });
 
-      await prisma.project.update({
-        where: { id: event.data.projectId },
-        data: { conversationSummary: updatedSummary },
-      });
+        await prisma.project.update({
+          where: { id: projectId },
+          data: { conversationSummary: updatedSummary },
+        });
 
-      return assistantMessage;
+        return assistantMessage;
+      },
     });
 
     return {
@@ -431,4 +520,29 @@ function toFileRecord(
     },
     {},
   );
+}
+
+function summarizeFileList(files: string[]): string | undefined {
+  if (!files.length) {
+    return undefined;
+  }
+  const uniquePaths = Array.from(new Set(files));
+
+  let summary: string;
+  if (uniquePaths.length === 1) {
+    summary = uniquePaths[0];
+  } else if (uniquePaths.length === 2) {
+    summary = `${uniquePaths[0]}, ${uniquePaths[1]}`;
+  } else {
+    summary = `${uniquePaths[0]}, ${uniquePaths[1]} +${uniquePaths.length - 2} more`;
+  }
+
+  return truncateSummary(summary, 80);
+}
+
+function truncateSummary(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
