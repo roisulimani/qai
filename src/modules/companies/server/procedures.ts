@@ -230,7 +230,7 @@ export const companiesRouter = createTRPCRouter({
       }
 
       const recentTransactions = transactions
-        .slice(0, 12)
+        .slice(0, 100)
         .map((transaction) => ({
           id: transaction.id,
           amount: transaction.amount,

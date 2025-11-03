@@ -45,7 +45,7 @@ const UsagePage = async () => {
                     reasons={usageAnalytics.reasons}
                 />
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="flex flex-col gap-6">
                     <UsageActivityOverview timeline={usageAnalytics.timeline} rangeLabel={rangeLabel} />
                     <UsageTransactions transactions={usageAnalytics.recentTransactions} />
                 </div>
