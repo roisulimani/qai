@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 
 import { CompanyUsageSummary } from "@/modules/home/ui/components/company-usage";
-import { ProjectsList } from "@/modules/home/ui/components/projects-list";
 import { SiteHeader } from "@/modules/home/ui/components/site-header";
+import { UsageActionsSummary } from "@/modules/usage/ui/components/usage-actions-summary";
+import { UsageActivityOverview } from "@/modules/usage/ui/components/usage-activity-overview";
+import { UsageTransactions } from "@/modules/usage/ui/components/usage-transactions";
 
 export const metadata: Metadata = {
     title: "Usage | QAI",
@@ -28,15 +29,6 @@ const UsagePage = () => {
                                 Monitor credits, spot trends in project activity, and understand how your team collaborates across QAI.
                             </p>
                         </div>
-                        <div className="flex items-center justify-center">
-                            <Image
-                                src="/logo.png"
-                                alt="QAI"
-                                width={96}
-                                height={96}
-                                className="rounded-2xl border border-white/30 bg-white/70 p-4 shadow-lg shadow-black/10 supports-[backdrop-filter]:backdrop-blur dark:border-white/10 dark:bg-neutral-900/70 dark:shadow-black/30"
-                            />
-                        </div>
                     </div>
                     <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <Link
@@ -58,13 +50,13 @@ const UsagePage = () => {
                             </span>
                         </Link>
                         <Link
-                            href="/referral"
+                            href="/admin"
                             className="group rounded-2xl border border-white/10 bg-white/40 p-4 text-sm transition hover:-translate-y-0.5 hover:bg-white/60 hover:shadow-lg hover:shadow-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:shadow-black/30 supports-[backdrop-filter]:backdrop-blur"
                         >
-                            <span className="block text-xs uppercase tracking-wide text-muted-foreground">Boost credits</span>
-                            <span className="mt-1 block text-base font-medium">Invite collaborators</span>
+                            <span className="block text-xs uppercase tracking-wide text-muted-foreground">Audit usage</span>
+                            <span className="mt-1 block text-base font-medium">Open admin dashboard</span>
                             <span className="mt-2 inline-flex items-center gap-1 text-xs text-primary">
-                                Earn rewards
+                                Review logs
                                 <svg
                                     aria-hidden
                                     className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
@@ -76,13 +68,13 @@ const UsagePage = () => {
                             </span>
                         </Link>
                         <Link
-                            href="/docs"
+                            href="/build"
                             className="group rounded-2xl border border-white/10 bg-white/40 p-4 text-sm transition hover:-translate-y-0.5 hover:bg-white/60 hover:shadow-lg hover:shadow-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:shadow-black/30 supports-[backdrop-filter]:backdrop-blur"
                         >
-                            <span className="block text-xs uppercase tracking-wide text-muted-foreground">Improve results</span>
-                            <span className="mt-1 block text-base font-medium">Explore best practices</span>
+                            <span className="block text-xs uppercase tracking-wide text-muted-foreground">Launch new flow</span>
+                            <span className="mt-1 block text-base font-medium">Create automation build</span>
                             <span className="mt-2 inline-flex items-center gap-1 text-xs text-primary">
-                                Read the docs
+                                Start building
                                 <svg
                                     aria-hidden
                                     className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
@@ -98,7 +90,12 @@ const UsagePage = () => {
 
                 <CompanyUsageSummary />
 
-                <ProjectsList />
+                <UsageActionsSummary />
+
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                    <UsageActivityOverview />
+                    <UsageTransactions />
+                </div>
             </div>
         </div>
     );
