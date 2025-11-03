@@ -36,9 +36,10 @@ export const projectsRouter = createTRPCRouter({
     getMany: companyProcedure
     .query(async ({ ctx }) => {
         const projects = await prisma.project.findMany({
-            orderBy: {
-                createdAt: "desc",
-            },
+            orderBy: [
+                { isFavorite: "desc" },
+                { createdAt: "desc" },
+            ],
             where: {
                 companyId: ctx.company.id,
             },
@@ -179,5 +180,54 @@ export const projectsRouter = createTRPCRouter({
             },
           });
           return createdProject;
+    }),
+
+    delete: companyProcedure
+    .input(
+        z.object({
+            id: z.string().min(1, {message: "Project ID is required"}),
+        }),
+    )
+    .mutation(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.id },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        await prisma.project.delete({
+            where: { id: input.id },
+        });
+
+        return { id: input.id };
+    }),
+
+    setFavorite: companyProcedure
+    .input(
+        z.object({
+            id: z.string().min(1, {message: "Project ID is required"}),
+            isFavorite: z.boolean(),
+        }),
+    )
+    .mutation(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.id },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        const updatedProject = await prisma.project.update({
+            where: { id: input.id },
+            data: { isFavorite: input.isFavorite },
+            select: { id: true, isFavorite: true },
+        });
+
+        return updatedProject;
     }),
 });
