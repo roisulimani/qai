@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Spline from "@splinetool/react-spline/next";
 
 import { BuildOnboarding } from "@/modules/home/ui/components/build-onboarding";
 import { ProjectForm } from "@/modules/home/ui/components/project-form";
@@ -14,7 +14,11 @@ const BuildPage = () => {
 
             <section className="space-y-6 py-6 md:py-16">
                 <div className="flex flex-col items-center">
-                    <Image src="/logo.png" alt="QAI" width={150} height={150} className="hidden md:block" />
+                    <Spline
+                        scene="https://prod.spline.design/5cLYbeBa0H-n9hJe/scene.splinecode"
+                        width={1080}
+                        height={1080}
+                    />
                 </div>
                 <h1 className="text-center text-2xl font-bold md:text-5xl">Build something amazing with QAI</h1>
                 <p className="text-center text-lg text-muted-foreground md:text-xl">
