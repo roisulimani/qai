@@ -1,6 +1,7 @@
 "use client";
 
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { format, parseISO } from "date-fns";
 
 import {
     ChartContainer,
@@ -11,47 +12,55 @@ import {
     type ChartConfig,
 } from "@/components/ui/chart";
 
-const weeklyActivity = [
-    { week: "May 6", automations: 180, interventions: 54, credits: 420 },
-    { week: "May 13", automations: 204, interventions: 48, credits: 468 },
-    { week: "May 20", automations: 236, interventions: 42, credits: 512 },
-    { week: "May 27", automations: 261, interventions: 36, credits: 558 },
-    { week: "Jun 3", automations: 275, interventions: 34, credits: 590 },
-    { week: "Jun 10", automations: 292, interventions: 31, credits: 628 },
-    { week: "Jun 17", automations: 300, interventions: 28, credits: 640 },
-];
-
 const chartConfig: ChartConfig = {
-    automations: {
-        label: "Automations",
+    creditsSpent: {
+        label: "Credits spent",
         color: "var(--chart-1)",
     },
-    interventions: {
-        label: "Manual reviews",
+    messagesCreated: {
+        label: "Iterations",
         color: "var(--chart-2)",
     },
-    credits: {
-        label: "Credits used",
+    fragmentsGenerated: {
+        label: "Fragments",
         color: "var(--chart-3)",
     },
 };
 
-export const UsageActivityOverview = () => {
+type UsageActivityOverviewProps = {
+    timeline: Array<{
+        date: string;
+        creditsSpent: number;
+        creditsGranted: number;
+        projectsCreated: number;
+        messagesCreated: number;
+        fragmentsGenerated: number;
+    }>;
+    rangeLabel: string;
+};
+
+export const UsageActivityOverview = ({ timeline, rangeLabel }: UsageActivityOverviewProps) => {
+    const chartData = timeline.map((entry) => ({
+        week: format(parseISO(entry.date), "MMM d"),
+        creditsSpent: entry.creditsSpent,
+        messagesCreated: entry.messagesCreated,
+        fragmentsGenerated: entry.fragmentsGenerated,
+    }));
+
     return (
         <section className="rounded-3xl border border-white/20 bg-white/60 p-6 shadow-2xl shadow-black/10 supports-[backdrop-filter]:backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-white/10 dark:bg-neutral-900/60 dark:shadow-black/30 dark:supports-[backdrop-filter]:bg-neutral-900/50">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Weekly activity</p>
-                    <h3 className="text-lg font-semibold">Automation throughput &amp; credit usage</h3>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Activity timeline</p>
+                    <h3 className="text-lg font-semibold">Build velocity &amp; credit spend</h3>
+                    <p className="text-xs text-muted-foreground">{rangeLabel}</p>
                 </div>
-                <div className="rounded-full bg-primary/10 px-4 py-1 text-xs font-medium text-primary">
-                    Updated 5 minutes ago
-                </div>
+                <div className="rounded-full bg-primary/10 px-4 py-1 text-xs font-medium text-primary">Synced in real time</div>
             </div>
 
             <div className="mt-6">
                 <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                    <AreaChart data={weeklyActivity} margin={{ left: 8, right: 8, top: 16, bottom: 0 }}>
+                    <AreaChart data={chartData} margin={{ left: 8, right: 8, top: 16, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="4 4" className="stroke-white/40 dark:stroke-white/10" />
                         <XAxis
                             dataKey="week"
@@ -73,9 +82,9 @@ export const UsageActivityOverview = () => {
                             cursor={{ strokeDasharray: "4 4" }}
                             content={<ChartTooltipContent indicator="line" />}
                         />
-                        <Area type="monotone" dataKey="automations" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.3} strokeWidth={2} />
-                        <Area type="monotone" dataKey="interventions" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.25} strokeWidth={2} />
-                        <Area type="monotone" dataKey="credits" stroke="var(--chart-3)" fill="var(--chart-3)" fillOpacity={0.2} strokeWidth={2} />
+                        <Area type="monotone" dataKey="creditsSpent" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.3} strokeWidth={2} />
+                        <Area type="monotone" dataKey="messagesCreated" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.25} strokeWidth={2} />
+                        <Area type="monotone" dataKey="fragmentsGenerated" stroke="var(--chart-3)" fill="var(--chart-3)" fillOpacity={0.2} strokeWidth={2} />
                         <ChartLegend verticalAlign="top" content={<ChartLegendContent />} />
                     </AreaChart>
                 </ChartContainer>
