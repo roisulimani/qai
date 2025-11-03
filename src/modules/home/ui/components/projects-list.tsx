@@ -3,10 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type MouseEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTRPC } from "@/trpc/client";
+import { toast } from "sonner";
+import { Loader2Icon, TrashIcon } from "lucide-react";
 
 const formatPossessive = (name: string) => {
     const trimmed = name.trim();
@@ -21,10 +24,47 @@ const formatPossessive = (name: string) => {
 
 export const ProjectsList = () => {
     const trpc = useTRPC();
+    const queryClient = useQueryClient();
+    const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
     const { data: projects, isLoading: isLoadingProjects } = useQuery(
         trpc.projects.getMany.queryOptions(),
     );
     const { data: company } = useQuery(trpc.companies.getCurrent.queryOptions());
+
+    const deleteProject = useMutation(
+        trpc.projects.delete.mutationOptions({
+            onMutate: async (variables) => {
+                setDeletingProjectId(variables.id);
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries(trpc.projects.getMany.queryOptions());
+                toast.success("Project deleted successfully");
+            },
+            onError: (error) => {
+                toast.error(error.message);
+            },
+            onSettled: () => {
+                setDeletingProjectId(null);
+            },
+        }),
+    );
+
+    const handleDeleteClick = (projectId: string, projectName: string) => async (
+        event: MouseEvent<HTMLButtonElement>,
+    ) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const confirmed = window.confirm(
+            `Delete project "${projectName}"? This action cannot be undone.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        await deleteProject.mutateAsync({ id: projectId });
+    };
 
     const projectCountLabel = isLoadingProjects
         ? "Loading projects..."
@@ -45,30 +85,46 @@ export const ProjectsList = () => {
                     </div>
                 )}
                 {projects?.map((project) => (
-                    <Button
-                        key={project.id}
-                        variant="outline"
-                        className="font-normal h-auto justify-start w-full text-start p-4"
-                        asChild
-                    >
-                        <Link href={`/projects/${project.id}`}>
-                            <div className="flex items-center gap-x-4">
-                                <Image
-                                    src="/logo.png"
-                                    alt="QAI"
-                                    width={32}
-                                    height={32}
-                                    className="object-contain"
-                                />
-                                <div className="flex flex-col">
-                                    <h3 className="truncate font-medium">{project.name}</h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {formatDistanceToNow(project.createdAt, { addSuffix: true })}
-                                    </p>
+                    <div key={project.id} className="relative group">
+                        <Button
+                            variant="outline"
+                            className="font-normal h-auto justify-start w-full text-start p-4 pr-12"
+                            asChild
+                        >
+                            <Link href={`/projects/${project.id}`}>
+                                <div className="flex items-center gap-x-4">
+                                    <Image
+                                        src="/logo.png"
+                                        alt="QAI"
+                                        width={32}
+                                        height={32}
+                                        className="object-contain"
+                                    />
+                                    <div className="flex flex-col">
+                                        <h3 className="truncate font-medium">{project.name}</h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatDistanceToNow(project.createdAt, { addSuffix: true })}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        </Link>
-                    </Button>
+                            </Link>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                            onClick={handleDeleteClick(project.id, project.name)}
+                            disabled={deleteProject.isPending && deletingProjectId === project.id}
+                            aria-label={`Delete ${project.name}`}
+                        >
+                            {deleteProject.isPending && deletingProjectId === project.id ? (
+                                <Loader2Icon className="size-4 animate-spin" />
+                            ) : (
+                                <TrashIcon className="size-4" />
+                            )}
+                        </Button>
+                    </div>
                 ))}
             </div>
         </div>
