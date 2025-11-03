@@ -100,6 +100,33 @@ export const projectsRouter = createTRPCRouter({
         };
     }),
 
+    getAgentActions: companyProcedure
+    .input(
+        z.object({
+            projectId: z.string().min(1, {message: "Project ID is required"}),
+        }),
+    )
+    .query(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.projectId },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        const actions = await prisma.agentAction.findMany({
+            where: { projectId: input.projectId },
+            orderBy: [
+                { startedAt: "asc" },
+                { createdAt: "asc" },
+            ],
+        });
+
+        return { actions };
+    }),
+
     create: companyProcedure
     .input(
         z.object({

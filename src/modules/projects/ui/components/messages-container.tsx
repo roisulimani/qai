@@ -65,7 +65,9 @@ export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment
                             type={message.type}
                         />
                     ))}
-                    {isLastMessageUserMessage && <MessageLoading />}
+                    {isLastMessageUserMessage && (
+                        <MessageLoading projectId={projectId} />
+                    )}
                     <div ref={bottomRef} />
                 </div>
             </div>

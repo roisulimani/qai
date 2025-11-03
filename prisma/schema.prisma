@@ -30,6 +30,7 @@ model Project {
   conversationSummary String?
 
   messages Message[]
+  agentActions AgentAction[]
 }
 
 model Company {
@@ -110,4 +111,38 @@ model Fragment {
   summary    String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+enum AgentActionStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum AgentActionKey {
+  INITIALIZE
+  LOAD_CONVERSATION_CONTEXT
+  GET_SANDBOX_ID
+  HYDRATE_SANDBOX
+  NETWORK_RUN
+  GET_SANDBOX_URL
+  SAVE_RESULT
+  TERMINAL
+  CREATE_OR_UPDATE_FILES
+  READ_FILES
+}
+
+model AgentAction {
+  id          String           @id @default(uuid())
+  projectId   String
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  key         AgentActionKey
+  label       String
+  detail      String?
+  status      AgentActionStatus @default(IN_PROGRESS)
+  metadata    Json?
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
