@@ -37,6 +37,8 @@ const AGENT_ACTION_LABELS: Record<AgentActionKey, string> = {
   TERMINAL: "Running terminal command",
   CREATE_OR_UPDATE_FILES: "Updating files",
   READ_FILES: "Reading files",
+  SAVE_PLAN: "Recording execution plan",
+  SAVE_REVIEW: "Recording review feedback",
 };
 
 const STEP_NAMES: Partial<Record<AgentActionKey, string>> = {
@@ -50,6 +52,8 @@ const STEP_NAMES: Partial<Record<AgentActionKey, string>> = {
   TERMINAL: "terminal",
   CREATE_OR_UPDATE_FILES: "createOrUpdateFiles",
   READ_FILES: "readFiles",
+  SAVE_PLAN: "save-plan",
+  SAVE_REVIEW: "save-review",
 };
 
 export function getAgentActionLabel(key: AgentActionKey) {

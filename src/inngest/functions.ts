@@ -17,7 +17,11 @@ import {
   computeRollingConversationSummary,
   loadProjectConversationContext,
 } from "./conversation";
-import { AgentActionKey, type Fragment } from "@/generated/prisma";
+import {
+  AgentActionKey,
+  AgentArtifactType,
+  type Fragment,
+} from "@/generated/prisma";
 import {
   resetAgentActions,
   runTrackedAgentAction,
@@ -28,12 +32,14 @@ import {
   PROJECT_NAME_PLACEHOLDER,
   PROJECT_NAME_PROMPT,
 } from "@/modules/projects/constants";
+import { createPlanningAgent } from "@/modules/agent/planner";
+import { createReviewAgent } from "@/modules/agent/reviewer";
+import type {
+  AgentNetworkState,
+  DiffArtifact,
+} from "@/modules/agent/types";
 
-interface AgentState {
-  summary: string;
-  files: { [path: string]: string };
-  hasFreshSummary: boolean;
-}
+const MAX_DIFF_SNIPPET_LENGTH = 4000;
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
@@ -98,7 +104,7 @@ export const codeAgentFunction = inngest.createFunction(
       });
     }
     // Create a new agent with a system prompt
-    const codeAgent = createAgent<AgentState>({
+    const codeAgent = createAgent<AgentNetworkState>({
       name: "codeAgent",
       system: PROMPT,
       model: openai({
@@ -168,7 +174,7 @@ export const codeAgentFunction = inngest.createFunction(
           }),
           handler: async (
             { files },
-            { step, network }: Tool.Options<AgentState>
+            { step, network }: Tool.Options<AgentNetworkState>
           ) => {
             const filePaths = files.map((file) => file.path);
             const newFiles = await runTrackedAgentAction({
@@ -249,37 +255,59 @@ export const codeAgentFunction = inngest.createFunction(
       ],
       lifecycle: {
         onResponse: async ({ result, network }) => {
-          const lastAssistantMessageText = 
+          const lastAssistantMessageText =
             lastAssistantTextMessageContent(result);
 
           if (lastAssistantMessageText && network) {
             if (lastAssistantMessageText.includes("<task_summary>")) {
               network.state.data.summary = lastAssistantMessageText;
               network.state.data.hasFreshSummary = true;
+              const diffs = computeDiffArtifacts(
+                network.state.data.baselineFiles || {},
+                network.state.data.files || {},
+              );
+              network.state.data.diffs = diffs;
+              network.state.data.reviewContext = formatDiffForReview(diffs);
+              network.state.data.stage = "review";
             }
           }
-          
+
           return result;
         },
       },
     });
 
-    const defaultState = createState<AgentState>({
+    const planningAgent = createPlanningAgent(requestedModel);
+    const reviewAgent = createReviewAgent(requestedModel);
+
+    const defaultState = createState<AgentNetworkState>({
       summary: latestFragment?.summary ?? "",
       files: latestFragmentFiles ?? {},
+      baselineFiles: latestFragmentFiles ?? {},
       hasFreshSummary: false,
+      stage: "planning",
+      plan: undefined,
+      review: undefined,
+      diffs: [],
+      reviewContext: undefined,
     });
 
-    const network = createNetwork<AgentState>({
+    const network = createNetwork<AgentNetworkState>({
       name: "coding-agent-network",
-      agents: [codeAgent],
+      agents: [planningAgent, codeAgent, reviewAgent],
       maxIter: 15,
       defaultState,
       router: async ({ network }) => {
-        if (network.state.data.hasFreshSummary) {
-          return;
+        switch (network.state.data.stage) {
+          case "planning":
+            return planningAgent;
+          case "executing":
+            return codeAgent;
+          case "review":
+            return reviewAgent;
+          default:
+            return undefined;
         }
-        return codeAgent;
       },
     });
 
@@ -297,6 +325,44 @@ export const codeAgentFunction = inngest.createFunction(
       metadata: { model: requestedModel },
       handler: () => network.run(conversationPayload),
     });
+
+    if (result.state.data.plan) {
+      await runTrackedAgentAction({
+        step,
+        projectId,
+        key: AgentActionKey.SAVE_PLAN,
+        detail: `Tasks: ${result.state.data.plan.tasks.length}`,
+        metadata: result.state.data.plan,
+        handler: async () => {
+          return prisma.agentArtifact.create({
+            data: {
+              projectId,
+              type: AgentArtifactType.PLAN,
+              data: result.state.data.plan!,
+            },
+          });
+        },
+      });
+    }
+
+    if (result.state.data.review) {
+      await runTrackedAgentAction({
+        step,
+        projectId,
+        key: AgentActionKey.SAVE_REVIEW,
+        detail: result.state.data.review.summary.slice(0, 200),
+        metadata: result.state.data.review,
+        handler: async () => {
+          return prisma.agentArtifact.create({
+            data: {
+              projectId,
+              type: AgentArtifactType.REVIEW,
+              data: result.state.data.review!,
+            },
+          });
+        },
+      });
+    }
 
     const isError =
       !result.state.data.summary ||
@@ -555,4 +621,71 @@ function truncateSummary(value: string, maxLength: number) {
     return value;
   }
   return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function computeDiffArtifacts(
+  baseline: Record<string, string>,
+  current: Record<string, string>,
+): DiffArtifact[] {
+  const paths = new Set([
+    ...Object.keys(baseline ?? {}),
+    ...Object.keys(current ?? {}),
+  ]);
+
+  const artifacts: DiffArtifact[] = [];
+
+  for (const path of paths) {
+    const before = baseline?.[path];
+    const after = current?.[path];
+
+    if (before === after) {
+      continue;
+    }
+
+    let changeType: DiffArtifact["changeType"] = "modified";
+    if (before === undefined) {
+      changeType = "added";
+    } else if (after === undefined) {
+      changeType = "removed";
+    }
+
+    artifacts.push({
+      path,
+      changeType,
+      before,
+      after,
+    });
+  }
+
+  return artifacts;
+}
+
+function formatDiffForReview(diffs: DiffArtifact[]): string {
+  if (!diffs.length) {
+    return "No file changes detected.";
+  }
+
+  return diffs
+    .map((diff) => {
+      const sections = [`Path: ${diff.path}`, `Change: ${diff.changeType}`];
+      if (typeof diff.before === "string") {
+        sections.push(
+          `Before:\n${truncateContent(diff.before, MAX_DIFF_SNIPPET_LENGTH)}`,
+        );
+      }
+      if (typeof diff.after === "string") {
+        sections.push(
+          `After:\n${truncateContent(diff.after, MAX_DIFF_SNIPPET_LENGTH)}`,
+        );
+      }
+      return sections.join("\n\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+function truncateContent(value: string, limit: number) {
+  if (value.length <= limit) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, limit - 1))}…`;
 }

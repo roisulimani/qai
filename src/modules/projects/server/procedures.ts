@@ -117,15 +117,21 @@ export const projectsRouter = createTRPCRouter({
             throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
         }
 
-        const actions = await prisma.agentAction.findMany({
-            where: { projectId: input.projectId },
-            orderBy: [
-                { startedAt: "asc" },
-                { createdAt: "asc" },
-            ],
-        });
+        const [actions, artifacts] = await prisma.$transaction([
+            prisma.agentAction.findMany({
+                where: { projectId: input.projectId },
+                orderBy: [
+                    { startedAt: "asc" },
+                    { createdAt: "asc" },
+                ],
+            }),
+            prisma.agentArtifact.findMany({
+                where: { projectId: input.projectId },
+                orderBy: { createdAt: "asc" },
+            }),
+        ]);
 
-        return { actions };
+        return { actions, artifacts };
     }),
 
     create: companyProcedure
