@@ -9,7 +9,6 @@ import {
 import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import { getSandbox, lastAssistantTextMessageContent } from "./utils";
-import { PROMPT } from "@/prompt";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
@@ -28,6 +27,7 @@ import {
   PROJECT_NAME_PLACEHOLDER,
   PROJECT_NAME_PROMPT,
 } from "@/modules/projects/constants";
+import { buildAgentPrompt } from "@/modules/agent/prompt/builder";
 
 interface AgentState {
   summary: string;
@@ -56,6 +56,26 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     const latestFragmentFiles = toFileRecord(latestFragment?.files);
+    const fragmentsForPrompt = messages
+      .map((message) => message.fragment)
+      .filter((fragment): fragment is Fragment => Boolean(fragment))
+      .map((fragment) => {
+        const files = toFileRecord(fragment.files);
+        return {
+          title: fragment.title,
+          summary: fragment.summary ?? null,
+          sandboxUrl: fragment.sandboxUrl,
+          fileManifest: files ? Object.keys(files) : [],
+        };
+      });
+
+    const systemPrompt = buildAgentPrompt({
+      project: {
+        summary: projectSummary ?? undefined,
+        outstandingGoals: latestUserMessage?.content ?? undefined,
+        fragments: fragmentsForPrompt,
+      },
+    });
     const requestedModel =
       typeof event.data.model === "string" &&
       (MODEL_IDS as readonly string[]).includes(event.data.model)
@@ -100,7 +120,7 @@ export const codeAgentFunction = inngest.createFunction(
     // Create a new agent with a system prompt
     const codeAgent = createAgent<AgentState>({
       name: "codeAgent",
-      system: PROMPT,
+      system: systemPrompt,
       model: openai({
         model: requestedModel,
         defaultParameters: {
