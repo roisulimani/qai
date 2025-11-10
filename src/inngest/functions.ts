@@ -280,10 +280,13 @@ export const codeAgentFunction = inngest.createFunction(
     const planningAgent = createPlanningAgent(requestedModel);
     const reviewAgent = createReviewAgent(requestedModel);
 
+    const initialFiles = { ...(latestFragmentFiles ?? {}) };
+    const initialBaselineFiles = { ...(latestFragmentFiles ?? {}) };
+
     const defaultState = createState<AgentNetworkState>({
       summary: latestFragment?.summary ?? "",
-      files: latestFragmentFiles ?? {},
-      baselineFiles: latestFragmentFiles ?? {},
+      files: initialFiles,
+      baselineFiles: initialBaselineFiles,
       hasFreshSummary: false,
       stage: "planning",
       plan: undefined,
