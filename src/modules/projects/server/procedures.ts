@@ -20,6 +20,12 @@ export const projectsRouter = createTRPCRouter({
             where: {
                 id: input.id,
             },
+            include: {
+                sandboxes: {
+                    orderBy: { updatedAt: "desc" },
+                    take: 1,
+                },
+            },
         });
         if (!existingProject) {
             throw new TRPCError({

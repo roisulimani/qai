@@ -8,7 +8,7 @@ import {
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
-import { getSandbox, lastAssistantTextMessageContent } from "./utils";
+import { getOrCreateSandbox, getSandbox, lastAssistantTextMessageContent } from "./utils";
 import { PROMPT } from "@/prompt";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -17,7 +17,11 @@ import {
   computeRollingConversationSummary,
   loadProjectConversationContext,
 } from "./conversation";
-import { AgentActionKey, type Fragment } from "@/generated/prisma";
+import {
+  AgentActionKey,
+  SandboxLifecycleStatus,
+  type Fragment,
+} from "@/generated/prisma";
 import {
   resetAgentActions,
   runTrackedAgentAction,
@@ -34,6 +38,14 @@ interface AgentState {
   files: { [path: string]: string };
   hasFreshSummary: boolean;
 }
+
+const DEFAULT_SANDBOX_INACTIVITY_HOURS = 6;
+const parsedInactivityHours = Number(process.env.SANDBOX_INACTIVITY_HOURS);
+const SANDBOX_INACTIVITY_HOURS =
+  Number.isFinite(parsedInactivityHours) && parsedInactivityHours > 0
+    ? parsedInactivityHours
+    : DEFAULT_SANDBOX_INACTIVITY_HOURS;
+const SANDBOX_INACTIVITY_MS = SANDBOX_INACTIVITY_HOURS * 60 * 60 * 1000;
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
@@ -76,8 +88,7 @@ export const codeAgentFunction = inngest.createFunction(
       projectId,
       key: AgentActionKey.GET_SANDBOX_ID,
       handler: async () => {
-        const sandbox = await Sandbox.create("qai-nextjs-t4");
-        return sandbox.sandboxId;
+        return getOrCreateSandbox(projectId);
       },
     });
 
@@ -511,6 +522,68 @@ export const generateProjectNameFunction = inngest.createFunction(
         data: { name: projectName },
       });
     });
+  },
+);
+
+export const suspendInactiveSandboxesFunction = inngest.createFunction(
+  { id: "suspend-inactive-sandboxes" },
+  { cron: "0 * * * *" },
+  async ({ step }) => {
+    const cutoff = new Date(Date.now() - SANDBOX_INACTIVITY_MS);
+
+    const staleSandboxes = await prisma.sandboxEnvironment.findMany({
+      where: {
+        status: SandboxLifecycleStatus.RUNNING,
+        lastActiveAt: { lt: cutoff },
+      },
+    });
+
+    if (!staleSandboxes.length) {
+      return { suspended: 0 };
+    }
+
+    const results = await Promise.all(
+      staleSandboxes.map((sandboxRecord) =>
+        step.run(`suspend-${sandboxRecord.id}`, async () => {
+          const currentRecord = await prisma.sandboxEnvironment.findUnique({
+            where: { id: sandboxRecord.id },
+          });
+
+          if (
+            !currentRecord ||
+            currentRecord.status !== SandboxLifecycleStatus.RUNNING ||
+            currentRecord.lastActiveAt >= cutoff
+          ) {
+            return false;
+          }
+
+          try {
+            const sandbox = await Sandbox.connect(currentRecord.sandboxId);
+            await sandbox.betaPause();
+          } catch (error) {
+            console.warn(
+              `Failed to suspend sandbox ${currentRecord.sandboxId}`,
+              error,
+            );
+          }
+
+          const updated = await prisma.sandboxEnvironment.updateMany({
+            where: {
+              id: currentRecord.id,
+              status: SandboxLifecycleStatus.RUNNING,
+              lastActiveAt: { lt: cutoff },
+            },
+            data: {
+              status: SandboxLifecycleStatus.HIBERNATED,
+            },
+          });
+
+          return updated.count > 0;
+        }),
+      ),
+    );
+
+    return { suspended: results.filter(Boolean).length };
   },
 );
 

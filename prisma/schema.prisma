@@ -32,6 +32,7 @@ model Project {
 
   messages Message[]
   agentActions AgentAction[]
+  sandboxes SandboxEnvironment[]
 }
 
 model Company {
@@ -146,4 +147,21 @@ model AgentAction {
   completedAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+}
+
+enum SandboxLifecycleStatus {
+  WARMING
+  RUNNING
+  HIBERNATED
+}
+
+model SandboxEnvironment {
+  id           String                 @id @default(uuid())
+  sandboxId    String                 @unique
+  projectId    String
+  project      Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status       SandboxLifecycleStatus @default(WARMING)
+  lastActiveAt DateTime               @default(now())
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 }
