@@ -6,7 +6,7 @@ import {
   createState,
   type Tool,
 } from "@inngest/agent-kit";
-import { Sandbox } from "@e2b/code-interpreter";
+import { NotFoundError, Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import { getOrCreateSandbox, getSandbox, lastAssistantTextMessageContent } from "./utils";
 import { PROMPT } from "@/prompt";
@@ -557,14 +557,25 @@ export const suspendInactiveSandboxesFunction = inngest.createFunction(
             return false;
           }
 
+          let shouldMarkHibernated = false;
+
           try {
             const sandbox = await Sandbox.connect(currentRecord.sandboxId);
             await sandbox.betaPause();
+            shouldMarkHibernated = true;
           } catch (error) {
-            console.warn(
-              `Failed to suspend sandbox ${currentRecord.sandboxId}`,
-              error,
-            );
+            if (error instanceof NotFoundError) {
+              shouldMarkHibernated = true;
+            } else {
+              console.warn(
+                `Failed to suspend sandbox ${currentRecord.sandboxId}`,
+                error,
+              );
+            }
+          }
+
+          if (!shouldMarkHibernated) {
+            return false;
           }
 
           const updated = await prisma.sandboxEnvironment.updateMany({
