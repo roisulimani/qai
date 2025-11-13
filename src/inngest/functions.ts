@@ -7,6 +7,7 @@ import {
   type Tool,
 } from "@inngest/agent-kit";
 import { NotFoundError, Sandbox } from "@e2b/code-interpreter";
+import { Prisma } from "@/generated/prisma";
 import { inngest } from "./client";
 import { getOrCreateSandbox, getSandbox, lastAssistantTextMessageContent } from "./utils";
 import { PROMPT } from "@/prompt";
@@ -531,12 +532,27 @@ export const suspendInactiveSandboxesFunction = inngest.createFunction(
   async ({ step }) => {
     const cutoff = new Date(Date.now() - SANDBOX_INACTIVITY_MS);
 
-    const staleSandboxes = await prisma.sandboxEnvironment.findMany({
-      where: {
-        status: SandboxLifecycleStatus.RUNNING,
-        lastActiveAt: { lt: cutoff },
-      },
-    });
+    let staleSandboxes: Awaited<
+      ReturnType<typeof prisma.sandboxEnvironment.findMany>
+    >;
+
+    try {
+      staleSandboxes = await prisma.sandboxEnvironment.findMany({
+        where: {
+          status: SandboxLifecycleStatus.RUNNING,
+          lastActiveAt: { lt: cutoff },
+        },
+      });
+    } catch (error) {
+      if (isDatabaseUnavailableError(error)) {
+        console.warn(
+          "Skipping sandbox suspension job because the database is unreachable.",
+          error,
+        );
+        return { suspended: 0, skipped: true };
+      }
+      throw error;
+    }
 
     if (!staleSandboxes.length) {
       return { suspended: 0 };
@@ -639,4 +655,13 @@ function truncateSummary(value: string, maxLength: number) {
     return value;
   }
   return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+function isDatabaseUnavailableError(
+  error: unknown,
+): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P1001" || error.code === "P1002")
+  );
 }
