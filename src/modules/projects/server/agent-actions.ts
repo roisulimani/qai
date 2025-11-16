@@ -21,6 +21,8 @@ export interface RunTrackedAgentActionOptions<T> {
   key: AgentActionKey;
   detail?: string | null;
   metadata?: Prisma.JsonValue;
+  workflowId?: string;
+  activityId?: string;
   handler: () => Promise<T>;
   onComplete?: UpdateResolver<T>;
   onError?: UpdateResolver<unknown>;
@@ -66,6 +68,8 @@ export async function runTrackedAgentAction<T>({
   key,
   detail,
   metadata,
+  workflowId,
+  activityId,
   handler,
   onComplete,
   onError,
@@ -80,6 +84,8 @@ export async function runTrackedAgentAction<T>({
         label: getAgentActionLabel(key),
         detail: detail ?? undefined,
         metadata,
+        workflowId,
+        activityId,
       },
     });
 

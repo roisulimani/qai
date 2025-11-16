@@ -20,6 +20,29 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Temporal orchestration
+
+Agent executions now run through a Temporal workflow that coordinates the LangGraph network, sandbox provisioning, and database writes. To work on the orchestrator locally:
+
+1. Start a Temporal dev server (defaults to `localhost:7233`):
+   ```bash
+   temporal server start-dev
+   ```
+2. In another terminal, run the agent worker in watch mode so it can pick up workflow code/activities:
+   ```bash
+   npm run agent-worker:dev
+   ```
+3. Use the health-check script to run the workflow against the in-memory Temporal test environment and ensure end-to-end wiring works:
+   ```bash
+   npm run temporal:health
+   ```
+
+Environment variables:
+
+- `TEMPORAL_ADDRESS` — override if your Temporal server is not running on `localhost:7233`.
+
+With those processes running, creating a project or sending a message from the UI will enqueue a Temporal workflow whose ID matches the triggering message ID (`message-<id>`), making runs idempotent.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

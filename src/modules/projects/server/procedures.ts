@@ -5,9 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
-import { inngest } from '@/inngest/client';
+import { inngest } from "@/inngest/client";
 import { MODEL_IDS } from "@/modules/models/constants";
 import { PROJECT_NAME_PLACEHOLDER } from "@/modules/projects/constants";
+import { startCodeAgentWorkflow } from "@/lib/temporal";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -152,6 +153,11 @@ export const projectsRouter = createTRPCRouter({
             }
         });
 
+        const initialMessage = await prisma.message.findFirst({
+            where: { projectId: createdProject.id },
+            orderBy: { createdAt: "asc" },
+        });
+
         await prisma.company.update({
             where: { id: ctx.company.id },
             data: {
@@ -170,16 +176,20 @@ export const projectsRouter = createTRPCRouter({
             },
         });
 
-        await inngest.send({
-            name: "code-agent/run",
-            data: {
-              value: input.value,
-              projectId: createdProject.id,
-              companyId: ctx.company.id,
-              model: input.model,
-            },
-          });
-          return createdProject;
+        if (initialMessage) {
+            await startCodeAgentWorkflow({
+                workflowId: `message-${initialMessage.id}`,
+                input: {
+                    value: input.value,
+                    projectId: createdProject.id,
+                    companyId: ctx.company.id,
+                    model: input.model,
+                    messageId: initialMessage.id,
+                },
+            });
+        }
+
+        return createdProject;
     }),
 
     delete: companyProcedure

@@ -142,6 +142,8 @@ model AgentAction {
   detail      String?
   status      AgentActionStatus @default(IN_PROGRESS)
   metadata    Json?
+  workflowId  String?
+  activityId  String?
   startedAt   DateTime         @default(now())
   completedAt DateTime?
   createdAt   DateTime         @default(now())

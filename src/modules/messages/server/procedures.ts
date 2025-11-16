@@ -3,9 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { inngest } from '@/inngest/client';
 import { recordMessageSendSpend } from '@/modules/companies/server/credits';
 import { MODEL_IDS } from "@/modules/models/constants";
+import { startCodeAgentWorkflow } from "@/lib/temporal";
 
 export const messagesRouter = createTRPCRouter({
 
@@ -67,15 +67,18 @@ export const messagesRouter = createTRPCRouter({
             },
         });
         await recordMessageSendSpend(ctx.company.id, input.projectId, newMessage.id);
-        await inngest.send({
-            name: "code-agent/run",
-            data: {
-              value: input.value,
-              projectId: input.projectId,
-              companyId: ctx.company.id,
-              model: input.model,
+
+        await startCodeAgentWorkflow({
+            workflowId: `message-${newMessage.id}`,
+            input: {
+                value: input.value,
+                projectId: input.projectId,
+                companyId: ctx.company.id,
+                model: input.model,
+                messageId: newMessage.id,
             },
-          });
-          return newMessage;
+        });
+
+        return newMessage;
     }),
 });
