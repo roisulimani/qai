@@ -5,10 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
-import { inngest } from "@/inngest/client";
 import { MODEL_IDS } from "@/modules/models/constants";
 import { PROJECT_NAME_PLACEHOLDER } from "@/modules/projects/constants";
 import { startCodeAgentWorkflow } from "@/lib/temporal";
+import { maybeGenerateProjectName } from "@/modules/projects/server/project-name";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -167,14 +167,17 @@ export const projectsRouter = createTRPCRouter({
 
         await recordProjectCreationSpend(ctx.company.id, createdProject.id);
 
-        await inngest.send({
-            name: "project/generate-name",
-            data: {
-                projectId: createdProject.id,
-                companyId: ctx.company.id,
-                initialMessage: input.value,
-            },
+        const projectName = await maybeGenerateProjectName({
+            initialMessage: input.value,
+            currentName: createdProject.name,
         });
+
+        if (projectName) {
+            await prisma.project.update({
+                where: { id: createdProject.id },
+                data: { name: projectName },
+            });
+        }
 
         if (initialMessage) {
             await startCodeAgentWorkflow({
