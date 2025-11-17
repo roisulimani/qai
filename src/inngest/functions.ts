@@ -6,9 +6,8 @@ import {
   createState,
   type Tool,
 } from "@inngest/agent-kit";
-import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
-import { getSandbox, lastAssistantTextMessageContent } from "./utils";
+import { lastAssistantTextMessageContent } from "./utils";
 import { PROMPT } from "@/prompt";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -28,6 +27,13 @@ import {
   PROJECT_NAME_PLACEHOLDER,
   PROJECT_NAME_PROMPT,
 } from "@/modules/projects/constants";
+import {
+  ensureWorkspaceSession,
+  readWorkspaceFiles,
+  resolveWorkspacePreview,
+  runWorkspaceCommand,
+  writeWorkspaceFiles,
+} from "@/lib/workspaces/client";
 
 interface AgentState {
   summary: string;
@@ -71,13 +77,19 @@ export const codeAgentFunction = inngest.createFunction(
       handler: async () => {},
     });
 
-    const sandboxId = await runTrackedAgentAction({
+    let workspacePreviewUrl: string | undefined;
+
+    const workspaceId = await runTrackedAgentAction({
       step,
       projectId,
       key: AgentActionKey.GET_SANDBOX_ID,
       handler: async () => {
-        const sandbox = await Sandbox.create("qai-nextjs-t4");
-        return sandbox.sandboxId;
+        const response = await ensureWorkspaceSession({
+          projectId,
+          files: latestFragmentFiles,
+        });
+        workspacePreviewUrl = response.previewUrl;
+        return response.workspaceId;
       },
     });
 
@@ -89,12 +101,12 @@ export const codeAgentFunction = inngest.createFunction(
         key: AgentActionKey.HYDRATE_SANDBOX,
         detail: summarizeFileList(filePaths),
         metadata: { fileCount: filePaths.length, files: filePaths },
-        handler: async () => {
-          const sandbox = await getSandbox(sandboxId);
-          for (const [path, content] of Object.entries(latestFragmentFiles)) {
-            await sandbox.files.write(path, content);
-          }
-        },
+        handler: async () =>
+          writeWorkspaceFiles({
+            projectId,
+            workspaceId,
+            files: latestFragmentFiles,
+          }),
       });
     }
     // Create a new agent with a system prompt
@@ -122,33 +134,20 @@ export const codeAgentFunction = inngest.createFunction(
               detail: command,
               metadata: { command },
               handler: async () => {
-                const buffers = {
-                  stdout: "",
-                  stderr: "",
-                };
-                try {
-                  const sandbox = await getSandbox(sandboxId);
-                  const result = await sandbox.commands.run(command, {
-                    onStdout: (data: string) => {
-                      buffers.stdout += data;
-                    },
-                    onStderr: (data: string) => {
-                      buffers.stderr += data;
-                    },
-                  });
-                  return result.stdout;
-                } catch (e) {
-                  console.error(
-                    `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`,
-                  );
-                  return `Command failed: ${e} \n stdout: ${buffers.stdout} \n stderr: ${buffers.stderr}`;
-                }
+                const result = await runWorkspaceCommand({
+                  projectId,
+                  workspaceId,
+                  command,
+                });
+
+                const output = [result.stdout, result.stderr]
+                  .filter((value) => Boolean(value))
+                  .join("\n");
+
+                return output || "Command completed.";
               },
               onComplete: (result) => {
-                if (
-                  typeof result === "string" &&
-                  result.startsWith("Command failed")
-                ) {
+                if (typeof result === "string" && result.startsWith("Command failed")) {
                   return { detail: "Command failed" };
                 }
               },
@@ -180,13 +179,17 @@ export const codeAgentFunction = inngest.createFunction(
               handler: async () => {
                 try {
                   const updatedFiles = network.state.data.files || {};
-                  const sandbox = await getSandbox(sandboxId);
-                  for (const file of files) {
-                    await sandbox.files.write(file.path, file.content);
-                    updatedFiles[file.path] = file.content;
-                  }
+                  const fileRecord = Object.fromEntries(
+                    files.map((file) => [file.path, file.content]),
+                  );
 
-                  return updatedFiles;
+                  await writeWorkspaceFiles({
+                    projectId,
+                    workspaceId,
+                    files: fileRecord,
+                  });
+
+                  return { ...updatedFiles, ...fileRecord };
                 } catch (e) {
                   console.error(
                     `Failed to create or update files: ${e}`,
@@ -221,16 +224,12 @@ export const codeAgentFunction = inngest.createFunction(
               metadata: { files },
               handler: async () => {
                 try {
-                  const sandbox = await getSandbox(sandboxId);
-                  const contents = [];
-                  for (const file of files) {
-                    const content = await sandbox.files.read(file);
-                    contents.push({
-                      path: file,
-                      content,
-                    });
-                  }
-                  return JSON.stringify(contents);
+                  const contents = await readWorkspaceFiles({
+                    projectId,
+                    workspaceId,
+                    files,
+                  });
+                  return JSON.stringify(contents.files);
                 } catch (e) {
                   console.error(
                     `Failed to read files: ${e}`,
@@ -307,9 +306,15 @@ export const codeAgentFunction = inngest.createFunction(
       projectId,
       key: AgentActionKey.GET_SANDBOX_URL,
       handler: async () => {
-        const sandbox = await getSandbox(sandboxId);
-        const host = sandbox.getHost(3000);
-        return `https://${host}`;
+        if (workspacePreviewUrl) {
+          return workspacePreviewUrl;
+        }
+        const preview = await resolveWorkspacePreview({
+          workspaceId,
+          projectId,
+        });
+        workspacePreviewUrl = preview.previewUrl;
+        return preview.previewUrl;
       },
     });
 

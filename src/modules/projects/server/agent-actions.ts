@@ -29,10 +29,10 @@ export interface RunTrackedAgentActionOptions<T> {
 const AGENT_ACTION_LABELS: Record<AgentActionKey, string> = {
   INITIALIZE: "Preparing agent run",
   LOAD_CONVERSATION_CONTEXT: "Loading project context",
-  GET_SANDBOX_ID: "Starting sandbox environment",
+  GET_SANDBOX_ID: "Starting workspace environment",
   HYDRATE_SANDBOX: "Syncing workspace files",
   NETWORK_RUN: "Generating solution",
-  GET_SANDBOX_URL: "Preparing live preview",
+  GET_SANDBOX_URL: "Preparing workspace preview",
   SAVE_RESULT: "Saving results",
   TERMINAL: "Running terminal command",
   CREATE_OR_UPDATE_FILES: "Updating files",
