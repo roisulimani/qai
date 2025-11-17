@@ -19,7 +19,7 @@ A Next.js application with an internal workspace service for provisioning and pr
 
 ## Modal setup (chosen provider)
 
-Modal is used as the default runtime (`WORKSPACE_RUNTIME=modal`). A verified Modal.com account with billing enabled is required before functions can pull images or keep instances warm.
+Modal is used as the default runtime (`WORKSPACE_RUNTIME=modal`). A verified Modal.com account with billing enabled is required before functions can pull images or keep instances warm. The Next.js app now delegates workspace lifecycle operations to a Modal HTTP function defined by `WORKSPACE_MODAL_SERVICE_URL`, instead of directly creating E2B sandboxes.
 
 1. Install the CLI:
    ```bash
@@ -31,7 +31,9 @@ Modal is used as the default runtime (`WORKSPACE_RUNTIME=modal`). A verified Mod
    modal token new --name qai-workspaces
    # (Optional) export MODAL_TOKEN_ID and MODAL_TOKEN_SECRET if you prefer env-based auth
    ```
-3. (Optional) Create a Modal environment (e.g., `dev`) and store any secrets your workspace runtime needs.
+3. (Optional) Create a Modal environment (e.g., `dev`) and store any secrets your workspace runtime needs. Deploy a Modal HTTP
+   function that accepts the workspace actions (`ensure`, `write`, `read`, `command`, `preview`) and point
+   `WORKSPACE_MODAL_SERVICE_URL` to that endpoint.
 
 > Note: This environment cannot authenticate to Modal directly, so the steps above must be run locally with your Modal credentials.
 
@@ -47,6 +49,8 @@ WORKSPACE_IMAGE=ghcr.io/your-org/qai-workspace:latest
 WORKSPACE_TOKEN=local-dev-token
 WORKSPACE_SERVICE_URL=http://localhost:3000
 WORKSPACE_CALLBACK_URL=https://app.example.com/api/workspaces/events
+# Modal HTTP function that replaces the direct E2B sandbox calls
+WORKSPACE_MODAL_SERVICE_URL=https://modal.example.com/workspaces
 # WORKSPACE_DEV_COMMAND=... # override the dev start command if needed
 # MODAL_TOKEN_ID=... # Optional: supply Modal auth via env vars instead of CLI config
 # MODAL_TOKEN_SECRET=...
