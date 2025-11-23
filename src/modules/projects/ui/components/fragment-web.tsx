@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ExternalLinkIcon,
     Loader2,
@@ -42,8 +42,34 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }),
     );
 
+    const pauseSandbox = useMutation(
+        trpc.sandboxes.pause.mutationOptions({
+            onSuccess: async () => {
+                await refetch();
+            },
+        }),
+    );
+
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
     const hasPreview = Boolean(previewUrl);
+
+    const requestWake = useCallback(() => {
+        if (typeof document === "undefined") return;
+        if (document.visibilityState !== "visible") return;
+        if (wakeSandbox.isPending) return;
+
+        const shouldWake = !sandboxStatus || sandboxStatus.status === SandboxStatus.PAUSED;
+        if (shouldWake) {
+            wakeSandbox.mutate({ projectId });
+        }
+    }, [projectId, sandboxStatus, wakeSandbox]);
+
+    const requestPause = useCallback(() => {
+        if (pauseSandbox.isPending) return;
+        if (sandboxStatus?.status !== SandboxStatus.RUNNING) return;
+
+        pauseSandbox.mutate({ projectId });
+    }, [pauseSandbox, projectId, sandboxStatus?.status]);
 
     useEffect(() => {
         if (previewUrl && previousUrlRef.current !== previewUrl) {
@@ -51,6 +77,30 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             setFragmentKey((prev) => prev + 1);
         }
     }, [previewUrl]);
+
+    useEffect(() => {
+        requestWake();
+    }, [requestWake]);
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "hidden") {
+                requestPause();
+            } else {
+                requestWake();
+            }
+        };
+
+        const handlePageHide = () => requestPause();
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", handlePageHide);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("pagehide", handlePageHide);
+        };
+    }, [requestPause, requestWake]);
 
     const onRefreshClick = () => {
         setFragmentKey((prev) => prev + 1);
