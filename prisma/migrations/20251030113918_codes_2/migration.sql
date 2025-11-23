@@ -4,24 +4,13 @@ CREATE TYPE "MessageRole" AS ENUM ('USER', 'ASSISTANT');
 -- CreateEnum
 CREATE TYPE "MessageType" AS ENUM ('RESULT', 'ERROR');
 
--- CreateEnum
-CREATE TYPE "AgentActionStatus" AS ENUM ('IN_PROGRESS', 'COMPLETED', 'FAILED');
-
--- CreateEnum
-CREATE TYPE "AgentActionKey" AS ENUM ('INITIALIZE', 'LOAD_CONVERSATION_CONTEXT', 'GET_SANDBOX_ID', 'HYDRATE_SANDBOX', 'NETWORK_RUN', 'GET_SANDBOX_URL', 'SAVE_RESULT', 'TERMINAL', 'CREATE_OR_UPDATE_FILES', 'READ_FILES');
-
--- CreateEnum
-CREATE TYPE "SandboxStatus" AS ENUM ('STARTING', 'RUNNING', 'PAUSED');
-
 -- CreateTable
 CREATE TABLE "Project" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "isFavorite" BOOLEAN NOT NULL DEFAULT false,
     "companyId" TEXT NOT NULL,
-    "conversationSummary" TEXT,
 
     CONSTRAINT "Project_pkey" PRIMARY KEY ("id")
 );
@@ -39,9 +28,6 @@ CREATE TABLE "Company" (
     "lastActiveAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "buildTourCompleted" BOOLEAN NOT NULL DEFAULT false,
-    "projectsTourCompleted" BOOLEAN NOT NULL DEFAULT false,
-    "projectViewTourCompleted" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Company_pkey" PRIMARY KEY ("id")
 );
@@ -99,37 +85,6 @@ CREATE TABLE "Fragment" (
     CONSTRAINT "Fragment_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "ProjectSandbox" (
-    "id" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "sandboxId" TEXT NOT NULL,
-    "sandboxUrl" TEXT NOT NULL,
-    "status" "SandboxStatus" NOT NULL DEFAULT 'STARTING',
-    "lastActiveAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ProjectSandbox_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "AgentAction" (
-    "id" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "key" "AgentActionKey" NOT NULL,
-    "label" TEXT NOT NULL,
-    "detail" TEXT,
-    "status" "AgentActionStatus" NOT NULL DEFAULT 'IN_PROGRESS',
-    "metadata" JSONB,
-    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "completedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "AgentAction_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "Company_codeHash_key" ON "Company"("codeHash");
 
@@ -138,9 +93,6 @@ CREATE UNIQUE INDEX "CompanySession_token_key" ON "CompanySession"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Fragment_messageId_key" ON "Fragment"("messageId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ProjectSandbox_projectId_key" ON "ProjectSandbox"("projectId");
 
 -- AddForeignKey
 ALTER TABLE "Project" ADD CONSTRAINT "Project_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -156,9 +108,3 @@ ALTER TABLE "Message" ADD CONSTRAINT "Message_projectId_fkey" FOREIGN KEY ("proj
 
 -- AddForeignKey
 ALTER TABLE "Fragment" ADD CONSTRAINT "Fragment_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "Message"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ProjectSandbox" ADD CONSTRAINT "ProjectSandbox_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "AgentAction" ADD CONSTRAINT "AgentAction_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
