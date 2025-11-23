@@ -28,7 +28,8 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                refetchInterval: false,
+                refetchOnWindowFocus: true,
             },
         ),
     );
@@ -41,6 +42,40 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             },
         }),
     );
+
+    const pauseSandbox = useMutation(
+        trpc.sandboxes.pause.mutationOptions({
+            onSuccess: async () => {
+                await refetch();
+            },
+        }),
+    );
+
+    useEffect(() => {
+        wakeSandbox.mutate({ projectId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const requestPause = () => {
+            pauseSandbox.mutate({ projectId });
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "hidden") {
+                requestPause();
+            }
+        };
+
+        window.addEventListener("pagehide", requestPause);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            requestPause();
+            window.removeEventListener("pagehide", requestPause);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [pauseSandbox, projectId]);
 
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
     const hasPreview = Boolean(previewUrl);
