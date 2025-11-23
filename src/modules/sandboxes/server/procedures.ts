@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
-import { getProjectSandboxStatus, wakeProjectSandbox } from "./service";
+import { getProjectSandboxStatus, pauseProjectSandbox, wakeProjectSandbox } from "./service";
 
 export const sandboxesRouter = createTRPCRouter({
     status: companyProcedure
@@ -33,5 +33,19 @@ export const sandboxesRouter = createTRPCRouter({
             }
 
             return wakeProjectSandbox(input.projectId);
+        }),
+    pause: companyProcedure
+        .input(z.object({ projectId: z.string().min(1, { message: "Project ID is required" }) }))
+        .mutation(async ({ input, ctx }) => {
+            const project = await prisma.project.findUnique({
+                where: { id: input.projectId },
+                select: { companyId: true },
+            });
+
+            if (!project || project.companyId !== ctx.company.id) {
+                throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+            }
+
+            return pauseProjectSandbox(input.projectId);
         }),
 });

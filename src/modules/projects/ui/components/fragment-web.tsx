@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ExternalLinkIcon,
     Loader2,
@@ -21,14 +21,21 @@ interface Props {
 export const FragmentWeb = ({ data, projectId }: Props) => {
     const [copied, setCopied] = useState(false);
     const [fragmentKey, setFragmentKey] = useState(0);
+    const [isPageVisible, setIsPageVisible] = useState(
+        typeof document === "undefined" || document.visibilityState === "visible",
+    );
     const previousUrlRef = useRef<string | null>(null);
+    const hasAwokenRef = useRef(false);
 
     const trpc = useTRPC();
     const { data: sandboxStatus, isFetching, refetch } = useQuery(
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                refetchInterval: isPageVisible ? 30_000 : false,
+                refetchOnWindowFocus: false,
+                refetchOnReconnect: false,
+                staleTime: 30_000,
             },
         ),
     );
@@ -42,8 +49,43 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }),
     );
 
+    const pauseSandbox = useMutation(trpc.sandboxes.pause.mutationOptions());
+
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
     const hasPreview = Boolean(previewUrl);
+
+    const pauseCurrentSandbox = useCallback(() => {
+        pauseSandbox.mutate({ projectId });
+    }, [pauseSandbox, projectId]);
+
+    useEffect(() => {
+        if (hasAwokenRef.current) return;
+        wakeSandbox.mutate({ projectId });
+        hasAwokenRef.current = true;
+    }, [projectId, wakeSandbox]);
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            const visible = document.visibilityState === "visible";
+            setIsPageVisible(visible);
+            if (visible) {
+                void refetch();
+            } else {
+                pauseCurrentSandbox();
+            }
+        };
+
+        const handlePageHide = () => pauseCurrentSandbox();
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", handlePageHide);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("pagehide", handlePageHide);
+            pauseCurrentSandbox();
+        };
+    }, [pauseCurrentSandbox, refetch]);
 
     useEffect(() => {
         if (previewUrl && previousUrlRef.current !== previewUrl) {
