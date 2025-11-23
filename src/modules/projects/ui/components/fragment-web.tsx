@@ -52,6 +52,9 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }),
     );
 
+    const wakeSandboxMutate = wakeSandbox.mutate;
+    const pauseSandboxMutate = pauseSandbox.mutate;
+
     const hasAwakenedRef = useRef(false);
 
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
@@ -59,10 +62,10 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
 
     useEffect(() => {
         if (!hasAwakenedRef.current) {
-            wakeSandbox.mutate({ projectId });
+            wakeSandboxMutate({ projectId });
             hasAwakenedRef.current = true;
         }
-    }, [projectId, wakeSandbox]);
+    }, [projectId, wakeSandboxMutate]);
 
     useEffect(() => {
         if (previewUrl && previousUrlRef.current !== previewUrl) {
@@ -74,12 +77,12 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.hidden) {
-                pauseSandbox.mutate({ projectId });
+                pauseSandboxMutate({ projectId });
             }
         };
 
         const handlePageHide = () => {
-            pauseSandbox.mutate({ projectId });
+            pauseSandboxMutate({ projectId });
         };
 
         document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -88,9 +91,9 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         return () => {
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("pagehide", handlePageHide);
-            pauseSandbox.mutate({ projectId });
+            pauseSandboxMutate({ projectId });
         };
-    }, [pauseSandbox, projectId]);
+    }, [pauseSandboxMutate, projectId]);
 
     const onRefreshClick = () => {
         setFragmentKey((prev) => prev + 1);

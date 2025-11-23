@@ -231,12 +231,19 @@ export async function pauseProjectSandbox(projectId: string) {
         where: { projectId },
     });
 
-    if (!sandboxRecord) return null;
+    if (!sandboxRecord || !sandboxRecord.sandboxId) return null;
 
-    try {
-        await Sandbox.betaPause(sandboxRecord.sandboxId);
-    } catch (error) {
-        console.error("Failed to pause sandbox", error);
+    const alreadyPaused = sandboxRecord.status === SandboxStatus.PAUSED;
+
+    if (!alreadyPaused) {
+        try {
+            await Sandbox.betaPause(sandboxRecord.sandboxId);
+        } catch (error) {
+            const notFound = (error as Error)?.name === "NotFoundError";
+            if (!notFound) {
+                console.error("Failed to pause sandbox", error);
+            }
+        }
     }
 
     return prisma.projectSandbox.update({
