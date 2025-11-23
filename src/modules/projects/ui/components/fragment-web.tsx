@@ -71,6 +71,12 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         pauseSandbox.mutate({ projectId });
     }, [pauseSandbox, projectId, sandboxStatus?.status]);
 
+    const requestPauseRef = useRef(requestPause);
+
+    useEffect(() => {
+        requestPauseRef.current = requestPause;
+    }, [requestPause]);
+
     useEffect(() => {
         if (previewUrl && previousUrlRef.current !== previewUrl) {
             previousUrlRef.current = previewUrl;
@@ -101,6 +107,12 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             window.removeEventListener("pagehide", handlePageHide);
         };
     }, [requestPause, requestWake]);
+
+    useEffect(() => {
+        return () => {
+            requestPauseRef.current();
+        };
+    }, []);
 
     const onRefreshClick = () => {
         setFragmentKey((prev) => prev + 1);
