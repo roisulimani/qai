@@ -32,6 +32,7 @@ model Project {
 
   messages Message[]
   agentActions AgentAction[]
+  sandbox   ProjectSandbox?
 }
 
 model Company {
@@ -131,6 +132,26 @@ enum AgentActionKey {
   TERMINAL
   CREATE_OR_UPDATE_FILES
   READ_FILES
+}
+
+enum SandboxStatus {
+  STARTING
+  RUNNING
+  PAUSED
+}
+
+model ProjectSandbox {
+  id        String         @id @default(uuid())
+  projectId String         @unique
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sandboxId    String
+  sandboxUrl   String
+  status       SandboxStatus @default(STARTING)
+  lastActiveAt DateTime      @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AgentAction {
