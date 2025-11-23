@@ -58,11 +58,11 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         if (document.visibilityState !== "visible") return;
         if (wakeSandbox.isPending) return;
 
-        const shouldWake = !sandboxStatus || sandboxStatus.status === SandboxStatus.PAUSED;
+        const shouldWake = sandboxStatus?.status === SandboxStatus.PAUSED;
         if (shouldWake) {
             wakeSandbox.mutate({ projectId });
         }
-    }, [projectId, sandboxStatus, wakeSandbox]);
+    }, [projectId, sandboxStatus?.status, wakeSandbox]);
 
     const requestPause = useCallback(() => {
         if (pauseSandbox.isPending) return;
@@ -85,8 +85,16 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     }, [previewUrl]);
 
     useEffect(() => {
-        requestWake();
-    }, [requestWake]);
+        if (typeof document === "undefined") return;
+        if (document.visibilityState !== "visible") return;
+        if (wakeSandbox.isPending) return;
+
+        const shouldWake = sandboxStatus?.status === SandboxStatus.PAUSED;
+        if (shouldWake) {
+            wakeSandbox.mutate({ projectId });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId, sandboxStatus?.status, wakeSandbox.isPending]);
 
     useEffect(() => {
         const handleVisibilityChange = () => {
