@@ -1,4 +1,4 @@
-import { NotFoundError, Sandbox, SandboxApi } from "@e2b/code-interpreter";
+import { NotFoundError, Sandbox } from "@e2b/code-interpreter";
 
 import { prisma } from "@/lib/db";
 import { SandboxStatus } from "@/generated/prisma";
@@ -114,7 +114,7 @@ export async function ensureConnectedSandbox({
     }
 
     await recordSandboxActivity(projectId, sandbox.sandboxId, sandbox.getHost(3000));
-    await SandboxApi.setTimeout(sandbox.sandboxId, SANDBOX_LIFETIME_MS).catch(() => undefined);
+    await Sandbox.setTimeout(sandbox.sandboxId, SANDBOX_LIFETIME_MS).catch(() => undefined);
 
     return {
         sandboxId: sandbox.sandboxId,
@@ -147,7 +147,7 @@ export async function recordSandboxActivity(
             ...(host ? { sandboxUrl: `https://${host}` } : {}),
         },
     });
-    await SandboxApi.setTimeout(sandboxId, SANDBOX_LIFETIME_MS).catch(() => undefined);
+    await Sandbox.setTimeout(sandboxId, SANDBOX_LIFETIME_MS).catch(() => undefined);
 }
 
 export async function getLatestProjectFiles(projectId: string) {
@@ -187,7 +187,7 @@ export async function getProjectSandboxStatus(projectId: string) {
     }
 
     try {
-        const info = await SandboxApi.getFullInfo(sandboxRecord.sandboxId);
+        const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
         const sandboxUrl = info.sandboxDomain
             ? `https://${info.sandboxDomain}`
             : sandboxRecord.sandboxUrl;
@@ -196,7 +196,7 @@ export async function getProjectSandboxStatus(projectId: string) {
         let status = info.state === "paused" ? SandboxStatus.PAUSED : SandboxStatus.RUNNING;
 
         if (status === SandboxStatus.RUNNING && idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
-            const paused = await SandboxApi.betaPause(sandboxRecord.sandboxId);
+            const paused = await Sandbox.betaPause(sandboxRecord.sandboxId);
             if (paused) {
                 status = SandboxStatus.PAUSED;
             }
@@ -207,7 +207,7 @@ export async function getProjectSandboxStatus(projectId: string) {
             data: { status, sandboxUrl },
         });
 
-        await SandboxApi.setTimeout(
+        await Sandbox.setTimeout(
             sandboxRecord.sandboxId,
             SANDBOX_LIFETIME_MS,
         ).catch(() => undefined);
