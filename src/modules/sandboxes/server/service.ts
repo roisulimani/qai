@@ -1,4 +1,5 @@
-import { NotFoundError, Sandbox } from "@e2b/code-interpreter";
+import { Sandbox } from "@e2b/code-interpreter";
+import { Prisma } from "@/generated/prisma";
 
 import { prisma } from "@/lib/db";
 import { SandboxStatus } from "@/generated/prisma";
@@ -7,6 +8,28 @@ import { toFileRecord } from "./file-utils";
 const SANDBOX_TEMPLATE = "qai-nextjs-t4";
 export const SANDBOX_LIFETIME_MS = 60 * 60 * 1000;
 export const SANDBOX_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
+
+export type SandboxLifecycleEventType =
+    | "sandbox.lifecycle.created"
+    | "sandbox.lifecycle.updated"
+    | "sandbox.lifecycle.killed"
+    | "sandbox.lifecycle.paused"
+    | "sandbox.lifecycle.resumed";
+
+export interface SandboxWebhookPayload {
+    version: string;
+    id: string;
+    type: SandboxLifecycleEventType | string;
+    eventData?: {
+        sandbox_metadata?: Record<string, string>;
+    };
+    sandboxBuildId: string;
+    sandboxExecutionId: string;
+    sandboxId: string;
+    sandboxTeamId: string;
+    sandboxTemplateId: string;
+    timestamp: string;
+}
 
 interface EnsureSandboxOptions {
     projectId: string;
@@ -186,58 +209,12 @@ export async function getProjectSandboxStatus(projectId: string) {
         } as const;
     }
 
-    try {
-        const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
-        const sandboxUrl = info.sandboxDomain
-            ? `https://${info.sandboxDomain}`
-            : sandboxRecord.sandboxUrl;
-        const now = Date.now();
-        const idleMs = now - sandboxRecord.lastActiveAt.getTime();
-        let status = info.state === "paused" ? SandboxStatus.PAUSED : SandboxStatus.RUNNING;
-
-        if (status === SandboxStatus.RUNNING && idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
-            const paused = await Sandbox.betaPause(sandboxRecord.sandboxId);
-            if (paused) {
-                status = SandboxStatus.PAUSED;
-            }
-        }
-
-        await prisma.projectSandbox.update({
-            where: { projectId },
-            data: { status, sandboxUrl },
-        });
-
-        await Sandbox.setTimeout(
-            sandboxRecord.sandboxId,
-            SANDBOX_LIFETIME_MS,
-        ).catch(() => undefined);
-
-        return {
-            ...fallback,
-            status,
-            sandboxUrl,
-            lastActiveAt: sandboxRecord.lastActiveAt,
-            expiresAt: info.endAt,
-        } as const;
-    } catch (error) {
-        if (error instanceof NotFoundError) {
-            const ensured = await ensureConnectedSandbox({
-                projectId,
-                hydrateFiles: files,
-                autoHydrate: true,
-            });
-
-            return {
-                ...fallback,
-                status: SandboxStatus.RUNNING,
-                sandboxUrl: ensured.sandboxUrl,
-                lastActiveAt: new Date(),
-                recreated: true,
-            } as const;
-        }
-
-        throw error;
-    }
+    return {
+        ...fallback,
+        status: sandboxRecord.status,
+        sandboxUrl: sandboxRecord.sandboxUrl,
+        lastActiveAt: sandboxRecord.lastActiveAt,
+    } as const;
 }
 
 export async function wakeProjectSandbox(projectId: string) {
@@ -247,6 +224,108 @@ export async function wakeProjectSandbox(projectId: string) {
         hydrateFiles: files,
         autoHydrate: true,
     });
+}
+
+export async function pauseProjectSandbox(projectId: string) {
+    const sandboxRecord = await prisma.projectSandbox.findUnique({
+        where: { projectId },
+    });
+
+    if (!sandboxRecord) return null;
+
+    try {
+        await Sandbox.betaPause(sandboxRecord.sandboxId);
+    } catch (error) {
+        console.error("Failed to pause sandbox", error);
+    }
+
+    return prisma.projectSandbox.update({
+        where: { projectId },
+        data: {
+            status: SandboxStatus.PAUSED,
+            lastActiveAt: new Date(),
+        },
+    });
+}
+
+export async function applySandboxLifecycleWebhook(payload: SandboxWebhookPayload) {
+    const status = mapWebhookTypeToStatus(payload.type);
+    if (!status) return { updated: false } as const;
+
+    const projectId = await resolveProjectIdFromWebhook(payload);
+    if (!projectId) return { updated: false } as const;
+
+    const sandboxRecord = await prisma.projectSandbox.findUnique({
+        where: { projectId },
+    });
+
+    let sandboxUrl = sandboxRecord?.sandboxUrl;
+    if (!sandboxUrl || status === SandboxStatus.RUNNING) {
+        sandboxUrl = await resolveSandboxUrl(payload.sandboxId, sandboxUrl);
+    }
+
+    const lastActiveAt = payload.timestamp
+        ? new Date(payload.timestamp)
+        : new Date();
+
+    const updateData: Prisma.ProjectSandboxUpdateInput = {
+        sandboxId: payload.sandboxId,
+        status,
+        sandboxUrl: sandboxUrl ?? sandboxRecord?.sandboxUrl ?? "",
+        lastActiveAt,
+    };
+
+    await prisma.projectSandbox.upsert({
+        where: { projectId },
+        update: updateData,
+        create: {
+            projectId,
+            sandboxId: payload.sandboxId,
+            sandboxUrl: updateData.sandboxUrl as string,
+            status,
+            lastActiveAt,
+        },
+    });
+
+    return { updated: true } as const;
+}
+
+function mapWebhookTypeToStatus(type: string) {
+    switch (type) {
+        case "sandbox.lifecycle.created":
+        case "sandbox.lifecycle.resumed":
+        case "sandbox.lifecycle.updated":
+            return SandboxStatus.RUNNING;
+        case "sandbox.lifecycle.paused":
+        case "sandbox.lifecycle.killed":
+            return SandboxStatus.PAUSED;
+        default:
+            return null;
+    }
+}
+
+async function resolveProjectIdFromWebhook(payload: SandboxWebhookPayload) {
+    const metadataProjectId = payload.eventData?.sandbox_metadata?.projectId;
+    if (metadataProjectId) return metadataProjectId;
+
+    const sandboxRecord = await prisma.projectSandbox.findFirst({
+        where: { sandboxId: payload.sandboxId },
+    });
+
+    return sandboxRecord?.projectId;
+}
+
+async function resolveSandboxUrl(sandboxId: string, fallback?: string | null) {
+    try {
+        const info = await Sandbox.getFullInfo(sandboxId);
+        if (info.sandboxDomain) {
+            return `https://${info.sandboxDomain}`;
+        }
+    } catch (error) {
+        console.error("Failed to resolve sandbox host", error);
+    }
+
+    return fallback ?? undefined;
 }
 
 async function hydrateSandboxFiles(

@@ -11,6 +11,7 @@ const envSchema = z.object({
   EARLY_ACCESS_REQUEST_FROM: z.string().email().default("no-reply@qai.app"),
   CREDIT_REQUEST_RECIPIENT: z.string().email().default("roi.sul@aol.com"),
   CREDIT_REQUEST_FROM: z.string().email().default("no-reply@qai.app"),
+  E2B_WEBHOOK_SECRET: z.string().default("dev-e2b-webhook-secret"),
 });
 
 const parsed = envSchema.safeParse({
@@ -23,6 +24,7 @@ const parsed = envSchema.safeParse({
   EARLY_ACCESS_REQUEST_FROM: process.env.EARLY_ACCESS_REQUEST_FROM,
   CREDIT_REQUEST_RECIPIENT: process.env.CREDIT_REQUEST_RECIPIENT,
   CREDIT_REQUEST_FROM: process.env.CREDIT_REQUEST_FROM,
+  E2B_WEBHOOK_SECRET: process.env.E2B_WEBHOOK_SECRET,
 });
 
 if (!parsed.success) {

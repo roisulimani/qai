@@ -28,7 +28,9 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                refetchInterval: false,
+                refetchOnWindowFocus: false,
+                refetchOnReconnect: false,
             },
         ),
     );
@@ -42,8 +44,25 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }),
     );
 
+    const pauseSandbox = useMutation(
+        trpc.sandboxes.pause.mutationOptions({
+            onSuccess: () => {
+                void refetch();
+            },
+        }),
+    );
+
+    const hasAwakenedRef = useRef(false);
+
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
     const hasPreview = Boolean(previewUrl);
+
+    useEffect(() => {
+        if (!hasAwakenedRef.current) {
+            wakeSandbox.mutate({ projectId });
+            hasAwakenedRef.current = true;
+        }
+    }, [projectId, wakeSandbox]);
 
     useEffect(() => {
         if (previewUrl && previousUrlRef.current !== previewUrl) {
@@ -51,6 +70,27 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             setFragmentKey((prev) => prev + 1);
         }
     }, [previewUrl]);
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                pauseSandbox.mutate({ projectId });
+            }
+        };
+
+        const handlePageHide = () => {
+            pauseSandbox.mutate({ projectId });
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", handlePageHide);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("pagehide", handlePageHide);
+            pauseSandbox.mutate({ projectId });
+        };
+    }, [pauseSandbox, projectId]);
 
     const onRefreshClick = () => {
         setFragmentKey((prev) => prev + 1);
