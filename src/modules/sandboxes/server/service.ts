@@ -249,6 +249,41 @@ export async function wakeProjectSandbox(projectId: string) {
     });
 }
 
+export async function pauseProjectSandbox(projectId: string) {
+    const sandboxRecord = await prisma.projectSandbox.findUnique({
+        where: { projectId },
+    });
+
+    if (!sandboxRecord) {
+        return { paused: false } as const;
+    }
+
+    try {
+        const paused = await Sandbox.betaPause(sandboxRecord.sandboxId);
+
+        await prisma.projectSandbox.update({
+            where: { projectId },
+            data: {
+                status: SandboxStatus.PAUSED,
+                lastActiveAt: new Date(),
+            },
+        });
+
+        return { paused: Boolean(paused) } as const;
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: { status: SandboxStatus.PAUSED },
+            });
+
+            return { paused: false } as const;
+        }
+
+        throw error;
+    }
+}
+
 async function hydrateSandboxFiles(
     sandbox: Sandbox,
     files: Record<string, string>,

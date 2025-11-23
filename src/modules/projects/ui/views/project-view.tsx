@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileExplorer } from "@/components/file-explorer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSandboxLifecycle } from "@/modules/sandboxes/ui/use-sandbox-lifecycle";
 
 const ProjectViewHeaderFallback = () => (
     <div className="border-b border-border px-4 py-4">
@@ -61,6 +62,7 @@ interface Props {
 export const ProjectView = ({ projectId }: Props) => {
     const [ activeFragment, setActiveFragment ] = useState<Fragment | null>(null);
     const [ tabState, setTabState ] = useState<"preview" | "code">("preview");
+    const { isPageVisible } = useSandboxLifecycle(projectId);
 
     return (
         <div className="h-screen">
@@ -118,6 +120,7 @@ export const ProjectView = ({ projectId }: Props) => {
                                 <FragmentWeb
                                     data={activeFragment}
                                     projectId={projectId}
+                                    isPageVisible={isPageVisible}
                                 />
                             )}
                         </TabsContent>

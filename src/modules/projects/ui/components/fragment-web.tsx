@@ -16,9 +16,10 @@ import { cn } from "@/lib/utils";
 interface Props {
     data: Fragment;
     projectId: string;
+    isPageVisible: boolean;
 }
 
-export const FragmentWeb = ({ data, projectId }: Props) => {
+export const FragmentWeb = ({ data, projectId, isPageVisible }: Props) => {
     const [copied, setCopied] = useState(false);
     const [fragmentKey, setFragmentKey] = useState(0);
     const previousUrlRef = useRef<string | null>(null);
@@ -28,7 +29,10 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                enabled: isPageVisible,
+                refetchInterval: isPageVisible ? 15000 : false,
+                refetchOnWindowFocus: true,
+                staleTime: 15000,
             },
         ),
     );
@@ -44,6 +48,12 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
 
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
     const hasPreview = Boolean(previewUrl);
+
+    useEffect(() => {
+        if (isPageVisible) {
+            void refetch();
+        }
+    }, [isPageVisible, refetch]);
 
     useEffect(() => {
         if (previewUrl && previousUrlRef.current !== previewUrl) {
