@@ -8,6 +8,48 @@ const SANDBOX_TEMPLATE = "qai-nextjs-t4";
 export const SANDBOX_LIFETIME_MS = 60 * 60 * 1000;
 export const SANDBOX_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
+const sandboxIdleTimers = new Map<string, NodeJS.Timeout>();
+
+function scheduleSandboxIdlePause(projectId: string, sandboxId: string) {
+    const existingTimer = sandboxIdleTimers.get(projectId);
+    if (existingTimer) {
+        clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(async () => {
+        try {
+            const sandboxRecord = await prisma.projectSandbox.findUnique({
+                where: { projectId },
+            });
+
+            if (!sandboxRecord || sandboxRecord.sandboxId !== sandboxId) {
+                sandboxIdleTimers.delete(projectId);
+                return;
+            }
+
+            const idleMs = Date.now() - sandboxRecord.lastActiveAt.getTime();
+            if (idleMs < SANDBOX_IDLE_TIMEOUT_MS) {
+                scheduleSandboxIdlePause(projectId, sandboxId);
+                return;
+            }
+
+            const paused = await Sandbox.betaPause(sandboxId);
+            if (paused) {
+                await prisma.projectSandbox.update({
+                    where: { projectId },
+                    data: { status: SandboxStatus.PAUSED },
+                });
+            }
+        } catch (error) {
+            console.error("Failed to auto-pause sandbox", { projectId, sandboxId, error });
+        } finally {
+            sandboxIdleTimers.delete(projectId);
+        }
+    }, SANDBOX_IDLE_TIMEOUT_MS);
+
+    sandboxIdleTimers.set(projectId, timer);
+}
+
 interface EnsureSandboxOptions {
     projectId: string;
     hydrateFiles?: Record<string, string> | null;
@@ -148,6 +190,7 @@ export async function recordSandboxActivity(
         },
     });
     await Sandbox.setTimeout(sandboxId, SANDBOX_LIFETIME_MS).catch(() => undefined);
+    scheduleSandboxIdlePause(projectId, sandboxId);
 }
 
 export async function getLatestProjectFiles(projectId: string) {
@@ -164,6 +207,10 @@ export async function getProjectSandboxStatus(projectId: string) {
     const sandboxRecord = await prisma.projectSandbox.findUnique({
         where: { projectId },
     });
+
+    if (sandboxRecord) {
+        scheduleSandboxIdlePause(projectId, sandboxRecord.sandboxId);
+    }
 
     const fallback = {
         idleTimeoutMs: SANDBOX_IDLE_TIMEOUT_MS,

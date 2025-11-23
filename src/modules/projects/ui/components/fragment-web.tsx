@@ -22,13 +22,24 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const [copied, setCopied] = useState(false);
     const [fragmentKey, setFragmentKey] = useState(0);
     const previousUrlRef = useRef<string | null>(null);
+    const [isPageVisible, setIsPageVisible] = useState(() => {
+        if (typeof document === "undefined") return true;
+        return document.visibilityState === "visible";
+    });
 
     const trpc = useTRPC();
     const { data: sandboxStatus, isFetching, refetch } = useQuery(
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                enabled: isPageVisible,
+                refetchOnReconnect: true,
+                refetchOnWindowFocus: true,
+                refetchInterval: (query) => {
+                    if (!isPageVisible) return false;
+                    const status = query.state.data?.status;
+                    return status === SandboxStatus.RUNNING ? 15000 : 5000;
+                },
             },
         ),
     );
@@ -51,6 +62,24 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             setFragmentKey((prev) => prev + 1);
         }
     }, [previewUrl]);
+
+    useEffect(() => {
+        if (typeof document === "undefined") return;
+
+        const onVisibilityChange = () => {
+            const isVisible = document.visibilityState === "visible";
+            setIsPageVisible(isVisible);
+            if (isVisible) {
+                refetch();
+            }
+        };
+
+        document.addEventListener("visibilitychange", onVisibilityChange);
+
+        return () => {
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
+    }, [refetch]);
 
     const onRefreshClick = () => {
         setFragmentKey((prev) => prev + 1);
