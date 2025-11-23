@@ -8,7 +8,8 @@ import {
 import { Fragment } from "@/generated/prisma";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessagesContainer } from "@/modules/projects/ui/components/messages-container";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { ProjectHeader } from "../components/project-header";
 import { FragmentWeb } from "../components/fragment-web";
 import { ProjectOnboarding } from "../components/project-onboarding";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileExplorer } from "@/components/file-explorer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTRPC } from "@/trpc/client";
 
 const ProjectViewHeaderFallback = () => (
     <div className="border-b border-border px-4 py-4">
@@ -61,6 +63,27 @@ interface Props {
 export const ProjectView = ({ projectId }: Props) => {
     const [ activeFragment, setActiveFragment ] = useState<Fragment | null>(null);
     const [ tabState, setTabState ] = useState<"preview" | "code">("preview");
+    const trpc = useTRPC();
+
+    const wakeSandbox = useMutation(trpc.sandboxes.wake.mutationOptions());
+    const pauseSandbox = useMutation(trpc.sandboxes.pause.mutationOptions());
+
+    useEffect(() => {
+        wakeSandbox.mutate({ projectId });
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "hidden") {
+                pauseSandbox.mutate({ projectId });
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            pauseSandbox.mutate({ projectId });
+        };
+    }, [pauseSandbox, projectId, wakeSandbox]);
 
     return (
         <div className="h-screen">
@@ -114,7 +137,12 @@ export const ProjectView = ({ projectId }: Props) => {
                             </div>
                         </div>
                         <TabsContent value="preview">
-                            {!!activeFragment && <FragmentWeb data={activeFragment} />}
+                            {!!activeFragment && (
+                                <FragmentWeb
+                                    data={activeFragment}
+                                    projectId={projectId}
+                                />
+                            )}
                         </TabsContent>
                         <TabsContent value="code" className="min-h-0">
                             {!!activeFragment?.files && (
