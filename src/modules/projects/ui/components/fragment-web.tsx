@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ExternalLinkIcon,
     Loader2,
+    MonitorOffIcon,
     PlayIcon,
     RefreshCcwIcon,
 } from "lucide-react";
@@ -24,7 +25,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const previousUrlRef = useRef<string | null>(null);
 
     const trpc = useTRPC();
-    const { data: sandboxStatus, isFetching, refetch } = useQuery(
+    const { data: sandboxStatus, refetch } = useQuery(
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
@@ -114,6 +115,36 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         wakeSandbox.isPending, // Only show pending state during wake, not during background polling
     );
 
+    const previewState = useMemo(() => {
+        if (wakeSandbox.isPending) {
+            return {
+                title: "Waking your sandbox",
+                description: "Hang tight—your sandbox is spinning back up.",
+                showPreview: false,
+            } as const;
+        }
+
+        if (sandboxStatus?.status === SandboxStatus.RUNNING && hasPreview) {
+            return { title: "", description: "", showPreview: true } as const;
+        }
+
+        if (sandboxStatus?.status === SandboxStatus.PAUSED) {
+            return {
+                title: "Sandbox is asleep",
+                description:
+                    "Wake the sandbox to continue exploring your live preview. Your files are safely preserved.",
+                showPreview: false,
+            } as const;
+        }
+
+        return {
+            title: "Sandbox unavailable",
+            description:
+                "We couldn’t load this sandbox. Start it again to keep building and see your latest changes.",
+            showPreview: false,
+        } as const;
+    }, [hasPreview, sandboxStatus?.status, wakeSandbox.isPending]);
+
     return (
         <div className="flex h-full w-full flex-col">
             <div className="flex flex-col gap-2 border-b bg-sidebar p-3 md:flex-row md:items-center md:justify-between">
@@ -188,10 +219,40 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             </div>
             <iframe
                 key={fragmentKey}
-                className="h-full w-full"
+                className={cn("h-full w-full", !previewState.showPreview && "hidden")}
                 sandbox="allow-forms allow-scripts allow-same-origin"
                 src={previewUrl ?? undefined}
             />
+
+            {!previewState.showPreview && (
+                <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-3 bg-muted/30 px-6 text-center">
+                    <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                        <MonitorOffIcon className="h-4 w-4" />
+                        <span>{previewState.title}</span>
+                    </div>
+                    <p className="max-w-xl text-sm text-muted-foreground">{previewState.description}</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => wakeSandbox.mutate({ projectId })}
+                            disabled={wakeSandbox.isPending}
+                            className="min-w-[130px]"
+                        >
+                            {wakeSandbox.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <PlayIcon className="h-4 w-4" />
+                            )}
+                            <span>{wakeSandbox.isPending ? "Waking…" : "Wake sandbox"}</span>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={onRefreshClick}>
+                            <RefreshCcwIcon className="h-4 w-4" />
+                            <span>Try again</span>
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
