@@ -23,6 +23,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const [copied, setCopied] = useState(false);
     const [fragmentKey, setFragmentKey] = useState(0);
     const previousUrlRef = useRef<string | null>(null);
+    const previousStatusRef = useRef<SandboxStatus | undefined>(undefined);
 
     const trpc = useTRPC();
     const { data: sandboxStatus, refetch } = useQuery(
@@ -69,6 +70,16 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             setFragmentKey((prev) => prev + 1);
         }
     }, [previewUrl]);
+
+    useEffect(() => {
+        const status = sandboxStatus?.status;
+
+        if (status === SandboxStatus.RUNNING && previousStatusRef.current !== SandboxStatus.RUNNING) {
+            setFragmentKey((prev) => prev + 1);
+        }
+
+        previousStatusRef.current = status;
+    }, [sandboxStatus?.status]);
 
     const onRefreshClick = () => {
         setFragmentKey((prev) => prev + 1);
