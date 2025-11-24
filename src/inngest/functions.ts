@@ -578,7 +578,8 @@ function truncateSummary(value: string, maxLength: number) {
  */
 export const sandboxIdleEnforcerFunction = inngest.createFunction(
   { id: "sandbox-idle-enforcer" },
-  { cron: "*/2 * * * *" }, // Every 2 minutes
+
+  { cron: "*/20 * * * *" }, // Every 20 minutes
   async ({ step }) => {
     const result = await step.run("enforce-idle-timeout", async () => {
       const startTime = Date.now();

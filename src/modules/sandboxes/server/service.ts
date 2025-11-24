@@ -5,8 +5,20 @@ import { SandboxStatus } from "@/generated/prisma";
 import { toFileRecord } from "./file-utils";
 
 const SANDBOX_TEMPLATE = "qai-nextjs-t4";
+
+/**
+ * Maximum lifetime duration for a sandbox instance in milliseconds.
+ * After this duration, the sandbox will be terminated regardless of activity.
+ * Default: 60 minutes (3,600,000 ms)
+ */
 export const SANDBOX_LIFETIME_MS = 60 * 60 * 1000;
-export const SANDBOX_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
+
+/**
+ * Idle timeout duration for a sandbox instance in milliseconds.
+ * If the sandbox has no activity for this duration, it will be paused/stopped.
+ * Default: 5 minutes (300,000 ms)
+ */
+export const SANDBOX_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface EnsureSandboxOptions {
     projectId: string;
