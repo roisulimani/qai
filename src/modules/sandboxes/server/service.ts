@@ -187,26 +187,27 @@ export async function getProjectSandboxStatus(projectId: string) {
     }
 
     try {
+        // Optimized: Return database state immediately without E2B API call
+        // The background scheduler handles idle timeout enforcement
+        // Webhooks keep the database state synchronized with E2B
+        
         const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
         const sandboxUrl = info.sandboxDomain
             ? `https://${info.sandboxDomain}`
             : sandboxRecord.sandboxUrl;
-        const now = Date.now();
-        const idleMs = now - sandboxRecord.lastActiveAt.getTime();
-        let status = info.state === "paused" ? SandboxStatus.PAUSED : SandboxStatus.RUNNING;
+        
+        // Use database status as source of truth (updated by webhooks and scheduler)
+        const status = sandboxRecord.status;
 
-        if (status === SandboxStatus.RUNNING && idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
-            const paused = await Sandbox.betaPause(sandboxRecord.sandboxId);
-            if (paused) {
-                status = SandboxStatus.PAUSED;
-            }
+        // Update sandbox URL if it changed, but don't modify status
+        if (sandboxUrl !== sandboxRecord.sandboxUrl) {
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: { sandboxUrl },
+            });
         }
 
-        await prisma.projectSandbox.update({
-            where: { projectId },
-            data: { status, sandboxUrl },
-        });
-
+        // Extend sandbox lifetime on each status check to prevent premature termination
         await Sandbox.setTimeout(
             sandboxRecord.sandboxId,
             SANDBOX_LIFETIME_MS,

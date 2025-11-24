@@ -28,7 +28,23 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                // Adaptive polling based on sandbox status
+                refetchInterval: (query) => {
+                    const status = query.state.data?.status;
+                    
+                    // No polling when paused - save resources
+                    if (status === SandboxStatus.PAUSED) {
+                        return false;
+                    }
+                    
+                    // Slow polling for running sandboxes (background job handles lifecycle)
+                    if (status === SandboxStatus.RUNNING) {
+                        return 30000; // 30 seconds
+                    }
+                    
+                    // Faster polling during initialization
+                    return 5000; // 5 seconds for STARTING status
+                },
             },
         ),
     );
@@ -36,6 +52,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const wakeSandbox = useMutation(
         trpc.sandboxes.wake.mutationOptions({
             onSuccess: async () => {
+                // After wake, poll aggressively for a short period to catch state change
                 await refetch();
                 setFragmentKey((prev) => prev + 1);
             },
@@ -68,7 +85,8 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
 
     const statusLabel = useMemo(() => {
         if (wakeSandbox.isPending) return "Waking sandbox…";
-        if (isFetching) return "Checking sandbox…";
+        // Don't show "Checking sandbox" during background polling - only show actual status
+        // This eliminates the flickering UI issue
 
         switch (sandboxStatus?.status) {
             case SandboxStatus.RUNNING:
@@ -78,7 +96,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             default:
                 return "Preparing sandbox…";
         }
-    }, [isFetching, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [sandboxStatus?.status, wakeSandbox.isPending]);
 
     const statusCaption = useMemo(() => {
         if (wakeSandbox.isPending) return "Bringing your sandbox back online…";
@@ -93,7 +111,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
 
     const statusClasses = getStatusClasses(
         sandboxStatus?.status,
-        isFetching || wakeSandbox.isPending,
+        wakeSandbox.isPending, // Only show pending state during wake, not during background polling
     );
 
     return (

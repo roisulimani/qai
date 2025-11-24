@@ -30,8 +30,11 @@ import {
 import {
   connectToProjectSandbox,
   ensureConnectedSandbox,
+  SANDBOX_IDLE_TIMEOUT_MS,
 } from "@/modules/sandboxes/server/service";
 import { toFileRecord } from "@/modules/sandboxes/server/file-utils";
+import { Sandbox } from "@e2b/code-interpreter";
+import { SandboxStatus } from "@/generated/prisma";
 
 interface AgentState {
   summary: string;
@@ -567,3 +570,117 @@ function truncateSummary(value: string, maxLength: number) {
   }
   return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
+
+/**
+ * Background scheduler function that enforces idle timeout policy across all sandboxes.
+ * Runs every 2 minutes to check for sandboxes that have been idle for more than 3 minutes.
+ * Pauses idle sandboxes to conserve resources.
+ */
+export const sandboxIdleEnforcerFunction = inngest.createFunction(
+  { id: "sandbox-idle-enforcer" },
+  { cron: "*/2 * * * *" }, // Every 2 minutes
+  async ({ step }) => {
+    const result = await step.run("enforce-idle-timeout", async () => {
+      const startTime = Date.now();
+      console.log("[Sandbox Idle Enforcer] Starting idle timeout enforcement");
+
+      try {
+        // Query all running sandboxes
+        const runningSandboxes = await prisma.projectSandbox.findMany({
+          where: {
+            status: SandboxStatus.RUNNING,
+          },
+          select: {
+            id: true,
+            projectId: true,
+            sandboxId: true,
+            lastActiveAt: true,
+          },
+        });
+
+        console.log(
+          `[Sandbox Idle Enforcer] Found ${runningSandboxes.length} running sandboxes to check`,
+        );
+
+        const now = Date.now();
+        let pausedCount = 0;
+        let errorCount = 0;
+        const errors: Array<{ projectId: string; error: string }> = [];
+
+        // Check each sandbox for idle timeout
+        for (const sandbox of runningSandboxes) {
+          try {
+            const idleMs = now - sandbox.lastActiveAt.getTime();
+
+            if (idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
+              console.log(
+                `[Sandbox Idle Enforcer] Pausing idle sandbox for project ${sandbox.projectId} (idle for ${Math.round(idleMs / 1000)}s)`,
+              );
+
+              // Pause the sandbox via E2B API
+              const paused = await Sandbox.betaPause(sandbox.sandboxId);
+
+              if (paused) {
+                // Update database status
+                await prisma.projectSandbox.update({
+                  where: { id: sandbox.id },
+                  data: {
+                    status: SandboxStatus.PAUSED,
+                  },
+                });
+
+                pausedCount++;
+                console.log(
+                  `[Sandbox Idle Enforcer] Successfully paused sandbox for project ${sandbox.projectId}`,
+                );
+              } else {
+                console.warn(
+                  `[Sandbox Idle Enforcer] Failed to pause sandbox for project ${sandbox.projectId} - API returned false`,
+                );
+              }
+            }
+          } catch (error) {
+            errorCount++;
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            errors.push({
+              projectId: sandbox.projectId,
+              error: errorMessage,
+            });
+            console.error(
+              `[Sandbox Idle Enforcer] Error pausing sandbox for project ${sandbox.projectId}:`,
+              errorMessage,
+            );
+            // Continue processing other sandboxes even if one fails
+          }
+        }
+
+        const duration = Date.now() - startTime;
+
+        const summary = {
+          totalChecked: runningSandboxes.length,
+          pausedCount,
+          errorCount,
+          durationMs: duration,
+          errors: errors.length > 0 ? errors : undefined,
+        };
+
+        console.log(
+          `[Sandbox Idle Enforcer] Completed: ${pausedCount} paused, ${errorCount} errors, ${duration}ms`,
+        );
+
+        return summary;
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.error(
+          "[Sandbox Idle Enforcer] Fatal error during enforcement:",
+          errorMessage,
+        );
+        throw error;
+      }
+    });
+
+    return result;
+  },
+);
