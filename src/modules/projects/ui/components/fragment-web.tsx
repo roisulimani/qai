@@ -24,11 +24,14 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const previousUrlRef = useRef<string | null>(null);
 
     const trpc = useTRPC();
-    const { data: sandboxStatus, isFetching, refetch } = useQuery(
+    const { data: sandboxStatus, isFetching, isLoading, refetch } = useQuery(
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                staleTime: 30_000,
+                gcTime: 5 * 60_000,
+                refetchOnWindowFocus: true,
+                refetchOnReconnect: true,
             },
         ),
     );
@@ -40,6 +43,10 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                 setFragmentKey((prev) => prev + 1);
             },
         }),
+    );
+
+    const { mutate: reportActivity } = useMutation(
+        trpc.sandboxes.activity.mutationOptions(),
     );
 
     const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
@@ -57,6 +64,46 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         refetch();
     };
 
+    const lastActivityPingRef = useRef(0);
+
+    useEffect(() => {
+        const sendActivity = () => {
+            const now = Date.now();
+            if (now - lastActivityPingRef.current < 30_000) return;
+            lastActivityPingRef.current = now;
+            reportActivity({ projectId });
+        };
+
+        const handleVisibility = () => {
+            sendActivity();
+            if (document.visibilityState === "visible") {
+                refetch();
+            }
+        };
+
+        const handleFocus = () => {
+            sendActivity();
+            refetch();
+        };
+
+        sendActivity();
+
+        document.addEventListener("visibilitychange", handleVisibility);
+        window.addEventListener("focus", handleFocus);
+        window.addEventListener("pointerdown", sendActivity);
+        window.addEventListener("keydown", sendActivity);
+        window.addEventListener("beforeunload", sendActivity);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibility);
+            window.removeEventListener("focus", handleFocus);
+            window.removeEventListener("pointerdown", sendActivity);
+            window.removeEventListener("keydown", sendActivity);
+            window.removeEventListener("beforeunload", sendActivity);
+            sendActivity();
+        };
+    }, [projectId, refetch, reportActivity]);
+
     const handleCopyClick = () => {
         if (!previewUrl) return;
         navigator.clipboard.writeText(previewUrl);
@@ -66,11 +113,14 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }, 2000);
     };
 
+    const sandboxState = sandboxStatus?.status;
+    const hasSandboxStatus = Boolean(sandboxStatus);
+
     const statusLabel = useMemo(() => {
         if (wakeSandbox.isPending) return "Waking sandbox…";
-        if (isFetching) return "Checking sandbox…";
+        if (isLoading && !hasSandboxStatus) return "Preparing sandbox…";
 
-        switch (sandboxStatus?.status) {
+        switch (sandboxState) {
             case SandboxStatus.RUNNING:
                 return "Live preview ready";
             case SandboxStatus.PAUSED:
@@ -78,7 +128,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             default:
                 return "Preparing sandbox…";
         }
-    }, [isFetching, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [hasSandboxStatus, isLoading, sandboxState, wakeSandbox.isPending]);
 
     const statusCaption = useMemo(() => {
         if (wakeSandbox.isPending) return "Bringing your sandbox back online…";

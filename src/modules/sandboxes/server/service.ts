@@ -8,6 +8,52 @@ const SANDBOX_TEMPLATE = "qai-nextjs-t4";
 export const SANDBOX_LIFETIME_MS = 60 * 60 * 1000;
 export const SANDBOX_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
+const sandboxIdleTimers = new Map<string, NodeJS.Timeout>();
+
+function scheduleSandboxPause(projectId: string, sandboxId: string, lastActiveAt: Date) {
+    const existingTimer = sandboxIdleTimers.get(projectId);
+    if (existingTimer) {
+        clearTimeout(existingTimer);
+    }
+
+    const elapsed = Date.now() - lastActiveAt.getTime();
+    const remaining = Math.max(SANDBOX_IDLE_TIMEOUT_MS - elapsed, 0);
+
+    const timer = setTimeout(async () => {
+        try {
+            const record = await prisma.projectSandbox.findUnique({
+                where: { projectId },
+                select: { sandboxId: true, lastActiveAt: true, status: true },
+            });
+
+            if (!record || record.status === SandboxStatus.PAUSED) {
+                sandboxIdleTimers.delete(projectId);
+                return;
+            }
+
+            const idleFor = Date.now() - record.lastActiveAt.getTime();
+            if (idleFor < SANDBOX_IDLE_TIMEOUT_MS) {
+                scheduleSandboxPause(projectId, record.sandboxId, record.lastActiveAt);
+                return;
+            }
+
+            const paused = await Sandbox.betaPause(record.sandboxId);
+            if (paused) {
+                await prisma.projectSandbox.update({
+                    where: { projectId },
+                    data: { status: SandboxStatus.PAUSED },
+                });
+            }
+        } catch (error) {
+            console.error("Failed to auto-pause sandbox", { projectId, error });
+        } finally {
+            sandboxIdleTimers.delete(projectId);
+        }
+    }, remaining);
+
+    sandboxIdleTimers.set(projectId, timer);
+}
+
 interface EnsureSandboxOptions {
     projectId: string;
     hydrateFiles?: Record<string, string> | null;
@@ -148,6 +194,7 @@ export async function recordSandboxActivity(
         },
     });
     await Sandbox.setTimeout(sandboxId, SANDBOX_LIFETIME_MS).catch(() => undefined);
+    scheduleSandboxPause(projectId, sandboxId, now);
 }
 
 export async function getLatestProjectFiles(projectId: string) {
@@ -212,6 +259,12 @@ export async function getProjectSandboxStatus(projectId: string) {
             SANDBOX_LIFETIME_MS,
         ).catch(() => undefined);
 
+        if (status === SandboxStatus.RUNNING) {
+            scheduleSandboxPause(projectId, sandboxRecord.sandboxId, sandboxRecord.lastActiveAt);
+        } else {
+            sandboxIdleTimers.delete(projectId);
+        }
+
         return {
             ...fallback,
             status,
@@ -247,6 +300,32 @@ export async function wakeProjectSandbox(projectId: string) {
         hydrateFiles: files,
         autoHydrate: true,
     });
+}
+
+export async function recordProjectSandboxActivity(projectId: string) {
+    const sandboxRecord = await prisma.projectSandbox.findUnique({
+        where: { projectId },
+    });
+
+    if (!sandboxRecord) {
+        const files = await getLatestProjectFiles(projectId);
+        const ensured = await ensureConnectedSandbox({
+            projectId,
+            hydrateFiles: files,
+            autoHydrate: true,
+        });
+
+        scheduleSandboxPause(projectId, ensured.sandboxId, new Date());
+        return ensured;
+    }
+
+    if (sandboxRecord.status === SandboxStatus.PAUSED) {
+        scheduleSandboxPause(projectId, sandboxRecord.sandboxId, sandboxRecord.lastActiveAt);
+        return sandboxRecord;
+    }
+
+    await recordSandboxActivity(projectId, sandboxRecord.sandboxId);
+    return sandboxRecord;
 }
 
 async function hydrateSandboxFiles(
