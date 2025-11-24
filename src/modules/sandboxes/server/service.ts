@@ -199,15 +199,28 @@ export async function getProjectSandboxStatus(projectId: string) {
     }
 
     try {
-        // Optimized: Return database state immediately without E2B API call
-        // The background scheduler handles idle timeout enforcement
-        // Webhooks keep the database state synchronized with E2B
-        
         const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
         const sandboxUrl = info.sandboxDomain
             ? `https://${info.sandboxDomain}`
             : sandboxRecord.sandboxUrl;
-        
+
+        // If the sandbox lifecycle already ended, recreate it with the latest files
+        if (info.endAt && info.endAt.getTime() <= Date.now()) {
+            const ensured = await ensureConnectedSandbox({
+                projectId,
+                hydrateFiles: files,
+                autoHydrate: true,
+            });
+
+            return {
+                ...fallback,
+                status: SandboxStatus.RUNNING,
+                sandboxUrl: ensured.sandboxUrl,
+                lastActiveAt: new Date(),
+                recreated: true,
+            } as const;
+        }
+
         // Use database status as source of truth (updated by webhooks and scheduler)
         const status = sandboxRecord.status;
 
