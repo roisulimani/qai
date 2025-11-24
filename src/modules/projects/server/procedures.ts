@@ -8,6 +8,14 @@ import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { inngest } from '@/inngest/client';
 import { MODEL_IDS } from "@/modules/models/constants";
 import { PROJECT_NAME_PLACEHOLDER } from "@/modules/projects/constants";
+import {
+    ensureProjectSandbox,
+    hydrateProjectSandbox,
+    pauseSandboxIfIdle,
+    toFileRecord,
+    wakeSandbox,
+} from "./sandboxes";
+import { ProjectSandboxStatus } from "@/generated/prisma";
 
 export const projectsRouter = createTRPCRouter({
 
@@ -126,6 +134,92 @@ export const projectsRouter = createTRPCRouter({
         });
 
         return { actions };
+    }),
+
+    getSandbox: companyProcedure
+    .input(z.object({ projectId: z.string().min(1, {message: "Project ID is required"}) }))
+    .query(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.projectId },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        const latestFragment = await prisma.fragment.findFirst({
+            where: { message: { projectId: input.projectId } },
+            orderBy: { createdAt: "desc" },
+        });
+
+        const latestFiles = toFileRecord(latestFragment?.files);
+
+        const sandboxContext = await ensureProjectSandbox({
+            projectId: input.projectId,
+            latestFragment,
+        });
+
+        if (sandboxContext.needsHydration && latestFiles) {
+            await hydrateProjectSandbox({
+                sandbox: sandboxContext.sandbox,
+                projectId: input.projectId,
+                files: latestFiles,
+                fragmentId: latestFragment?.id,
+            });
+        }
+
+        const record = await pauseSandboxIfIdle(
+            sandboxContext.record,
+            sandboxContext.sandbox,
+        );
+
+        return {
+            sandboxUrl: sandboxContext.sandboxUrl,
+            status: record.status,
+            lastActiveAt: record.lastActiveAt,
+            wasRecreated: sandboxContext.wasRecreated,
+        };
+    }),
+
+    wakeSandbox: companyProcedure
+    .input(z.object({ projectId: z.string().min(1, {message: "Project ID is required"}) }))
+    .mutation(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.projectId },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        const latestFragment = await prisma.fragment.findFirst({
+            where: { message: { projectId: input.projectId } },
+            orderBy: { createdAt: "desc" },
+        });
+
+        const latestFiles = toFileRecord(latestFragment?.files);
+
+        const sandboxContext = await wakeSandbox({
+            projectId: input.projectId,
+            latestFragment,
+        });
+
+        if (sandboxContext.needsHydration && latestFiles) {
+            await hydrateProjectSandbox({
+                sandbox: sandboxContext.sandbox,
+                projectId: input.projectId,
+                files: latestFiles,
+                fragmentId: latestFragment?.id,
+            });
+        }
+
+        return {
+            sandboxUrl: sandboxContext.sandboxUrl,
+            status: ProjectSandboxStatus.ACTIVE,
+            lastActiveAt: new Date(),
+        };
     }),
 
     create: companyProcedure

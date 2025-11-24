@@ -6,9 +6,8 @@ import {
   createState,
   type Tool,
 } from "@inngest/agent-kit";
-import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
-import { getSandbox, lastAssistantTextMessageContent } from "./utils";
+import { lastAssistantTextMessageContent } from "./utils";
 import { PROMPT } from "@/prompt";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -17,7 +16,7 @@ import {
   computeRollingConversationSummary,
   loadProjectConversationContext,
 } from "./conversation";
-import { AgentActionKey, type Fragment } from "@/generated/prisma";
+import { AgentActionKey, ProjectSandboxStatus } from "@/generated/prisma";
 import {
   resetAgentActions,
   runTrackedAgentAction,
@@ -28,6 +27,13 @@ import {
   PROJECT_NAME_PLACEHOLDER,
   PROJECT_NAME_PROMPT,
 } from "@/modules/projects/constants";
+import {
+  ensureProjectSandbox,
+  hydrateProjectSandbox,
+  markSandboxActive,
+  SANDBOX_CONSTANTS,
+  toFileRecord,
+} from "@/modules/projects/server/sandboxes";
 
 interface AgentState {
   summary: string;
@@ -71,17 +77,24 @@ export const codeAgentFunction = inngest.createFunction(
       handler: async () => {},
     });
 
-    const sandboxId = await runTrackedAgentAction({
+    const sandboxContext = await runTrackedAgentAction({
       step,
       projectId,
       key: AgentActionKey.GET_SANDBOX_ID,
       handler: async () => {
-        const sandbox = await Sandbox.create("qai-nextjs-t4");
-        return sandbox.sandboxId;
+        return ensureProjectSandbox({
+          projectId,
+          latestFragment,
+        });
       },
+      onComplete: (context) => ({
+        detail: context?.wasRecreated
+          ? "Started fresh sandbox"
+          : "Reusing project sandbox",
+      }),
     });
 
-    if (latestFragmentFiles) {
+    if (sandboxContext.needsHydration && latestFragmentFiles) {
       const filePaths = Object.keys(latestFragmentFiles);
       await runTrackedAgentAction({
         step,
@@ -89,14 +102,19 @@ export const codeAgentFunction = inngest.createFunction(
         key: AgentActionKey.HYDRATE_SANDBOX,
         detail: summarizeFileList(filePaths),
         metadata: { fileCount: filePaths.length, files: filePaths },
-        handler: async () => {
-          const sandbox = await getSandbox(sandboxId);
-          for (const [path, content] of Object.entries(latestFragmentFiles)) {
-            await sandbox.files.write(path, content);
-          }
-        },
+        handler: async () =>
+          hydrateProjectSandbox({
+            sandbox: sandboxContext.sandbox,
+            projectId,
+            files: latestFragmentFiles,
+            fragmentId: latestFragment?.id,
+          }),
       });
+    } else {
+      await markSandboxActive(projectId);
     }
+    const sandbox = sandboxContext.sandbox;
+
     // Create a new agent with a system prompt
     const codeAgent = createAgent<AgentState>({
       name: "codeAgent",
@@ -127,7 +145,6 @@ export const codeAgentFunction = inngest.createFunction(
                   stderr: "",
                 };
                 try {
-                  const sandbox = await getSandbox(sandboxId);
                   const result = await sandbox.commands.run(command, {
                     onStdout: (data: string) => {
                       buffers.stdout += data;
@@ -136,6 +153,7 @@ export const codeAgentFunction = inngest.createFunction(
                       buffers.stderr += data;
                     },
                   });
+                  await markSandboxActive(projectId);
                   return result.stdout;
                 } catch (e) {
                   console.error(
@@ -180,11 +198,12 @@ export const codeAgentFunction = inngest.createFunction(
               handler: async () => {
                 try {
                   const updatedFiles = network.state.data.files || {};
-                  const sandbox = await getSandbox(sandboxId);
                   for (const file of files) {
                     await sandbox.files.write(file.path, file.content);
                     updatedFiles[file.path] = file.content;
                   }
+
+                  await markSandboxActive(projectId);
 
                   return updatedFiles;
                 } catch (e) {
@@ -221,7 +240,6 @@ export const codeAgentFunction = inngest.createFunction(
               metadata: { files },
               handler: async () => {
                 try {
-                  const sandbox = await getSandbox(sandboxId);
                   const contents = [];
                   for (const file of files) {
                     const content = await sandbox.files.read(file);
@@ -230,6 +248,7 @@ export const codeAgentFunction = inngest.createFunction(
                       content,
                     });
                   }
+                  await markSandboxActive(projectId);
                   return JSON.stringify(contents);
                 } catch (e) {
                   console.error(
@@ -306,11 +325,7 @@ export const codeAgentFunction = inngest.createFunction(
       step,
       projectId,
       key: AgentActionKey.GET_SANDBOX_URL,
-      handler: async () => {
-        const sandbox = await getSandbox(sandboxId);
-        const host = sandbox.getHost(3000);
-        return `https://${host}`;
-      },
+      handler: async () => sandboxContext.sandboxUrl,
     });
 
     await runTrackedAgentAction({
@@ -343,6 +358,17 @@ export const codeAgentFunction = inngest.createFunction(
                 summary: result.state.data.summary,
               },
             },
+          },
+        });
+
+        await prisma.projectSandbox.update({
+          where: { projectId },
+          data: {
+            lastSyncedFragmentId: assistantMessage.fragment?.id,
+            sandboxUrl,
+            status: ProjectSandboxStatus.ACTIVE,
+            lastActiveAt: new Date(),
+            expiresAt: new Date(Date.now() + SANDBOX_CONSTANTS.TIMEOUT_MS),
           },
         });
 
@@ -513,24 +539,6 @@ export const generateProjectNameFunction = inngest.createFunction(
     });
   },
 );
-
-function toFileRecord(
-  value: Fragment["files"] | undefined | null,
-): Record<string, string> | null {
-  if (!value || Array.isArray(value) || typeof value !== "object") {
-    return null;
-  }
-
-  return Object.entries(value).reduce<Record<string, string>>(
-    (accumulator, [path, content]) => {
-      if (typeof content === "string") {
-        accumulator[path] = content;
-      }
-      return accumulator;
-    },
-    {},
-  );
-}
 
 function summarizeFileList(files: string[]): string | undefined {
   if (!files.length) {
