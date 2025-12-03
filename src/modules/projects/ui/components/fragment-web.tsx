@@ -100,10 +100,11 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
     };
 
     const statusLabel = useMemo(() => {
-        if (wakeSandbox.isPending) return "Waking sandbox…";
+        if (wakeSandbox.isPending) return "Starting sandbox…";
         if (isStatusLoading) return "Checking sandbox…";
+        if (error || !sandboxStatus) return "Sandbox unavailable";
 
-        switch (sandboxStatus?.status) {
+        switch (sandboxStatus.status) {
             case SandboxStatus.RUNNING:
                 return "Live preview ready";
             case SandboxStatus.PAUSED:
@@ -112,23 +113,24 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
             default:
                 return "Preparing sandbox…";
         }
-    }, [isStatusLoading, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [error, isStatusLoading, sandboxStatus, wakeSandbox.isPending]);
 
     const statusCaption = useMemo(() => {
-        if (wakeSandbox.isPending) return "Bringing your sandbox back online…";
+        if (wakeSandbox.isPending) return "Getting your workspace ready…";
         if (isStatusLoading) return "Syncing with your latest project files…";
-        if (error) return "We couldn’t verify the sandbox. Try refreshing or creating a new one.";
-        if (sandboxStatus?.status === SandboxStatus.PAUSED) {
-            return "Auto-paused after 3 minutes of inactivity. Wake it to continue.";
+        if (error) return "We couldn’t reach the sandbox. Create a new one to continue.";
+        if (!sandboxStatus) return "Create a sandbox to view your live preview.";
+        if (sandboxStatus.status === SandboxStatus.PAUSED) {
+            return "Auto-paused after inactivity. Wake it to continue.";
         }
-        if (sandboxStatus?.status === SandboxStatus.STARTING) {
-            return "Creating an isolated workspace with your latest files.";
+        if (sandboxStatus.status === SandboxStatus.STARTING) {
+            return "Preparing an isolated workspace with your files.";
         }
-        if (sandboxStatus?.recreated) {
-            return "We restarted a fresh sandbox to keep your files available.";
+        if (sandboxStatus.recreated) {
+            return "We restarted a fresh sandbox with your files.";
         }
         return "Sandboxes stay active for 1 hour with smart auto-pause.";
-    }, [error, isStatusLoading, sandboxStatus?.recreated, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [error, isStatusLoading, sandboxStatus, wakeSandbox.isPending]);
 
     const statusClasses = getStatusClasses(
         sandboxStatus?.status,
@@ -141,10 +143,10 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
     const renderPreviewPlaceholder = () => {
         return (
             <div className="flex h-full flex-1 flex-col items-center justify-center gap-4 bg-muted/30 p-6 text-center">
-                <div className="flex flex-col items-center gap-3">
+                <div className="flex flex-col items-center gap-3 rounded-lg bg-background/80 px-5 py-4 shadow-sm">
                     <div
                         className={cn(
-                            "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-sm",
+                            "flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium",
                             statusClasses.badge,
                         )}
                     >
@@ -152,34 +154,31 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
                         <span>{statusLabel}</span>
                         {sandboxStatus?.recreated && <span className="text-amber-500">Restarted</span>}
                     </div>
-                    <p className="max-w-lg text-sm text-muted-foreground">{statusCaption}</p>
+                    <p className="max-w-sm text-sm text-muted-foreground">{statusCaption}</p>
                     {error && <p className="text-xs text-destructive">{error.message}</p>}
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                    {showWakeAction && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => wakeSandbox.mutate({ projectId })}
-                            disabled={wakeSandbox.isPending}
-                            className="min-w-[150px]"
-                        >
-                            {wakeSandbox.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <PlayIcon className="h-4 w-4" />
-                            )}
-                            <span>{wakeSandbox.isPending ? "Waking…" : actionLabel}</span>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                        {showWakeAction && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => wakeSandbox.mutate({ projectId })}
+                                disabled={wakeSandbox.isPending}
+                                className="min-w-[150px]"
+                            >
+                                {wakeSandbox.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <PlayIcon className="h-4 w-4" />
+                                )}
+                                <span>{wakeSandbox.isPending ? "Waking…" : actionLabel}</span>
+                            </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={onRefreshClick}>
+                            <RefreshCcwIcon className="h-4 w-4" />
+                            <span>Refresh</span>
                         </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={onRefreshClick}>
-                        <RefreshCcwIcon className="h-4 w-4" />
-                        <span>Refresh status</span>
-                    </Button>
+                    </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                    We only render the live preview once the sandbox is fully ready, keeping error pages out of sight.
-                </p>
             </div>
         );
     };
