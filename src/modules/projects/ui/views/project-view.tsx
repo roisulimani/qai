@@ -115,10 +115,7 @@ export const ProjectView = ({ projectId }: Props) => {
                         </div>
                         <TabsContent value="preview">
                             {!!activeFragment && (
-                                <FragmentWeb
-                                    data={activeFragment}
-                                    projectId={projectId}
-                                />
+                                <FragmentWeb projectId={projectId} />
                             )}
                         </TabsContent>
                         <TabsContent value="code" className="min-h-0">

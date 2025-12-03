@@ -7,24 +7,23 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { Fragment, SandboxStatus } from "@/generated/prisma";
+import { SandboxStatus } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
 import { useTRPC } from "@/trpc/client";
 import { cn } from "@/lib/utils";
 
 interface Props {
-    data: Fragment;
     projectId: string;
 }
 
-export const FragmentWeb = ({ data, projectId }: Props) => {
+export const FragmentWeb = ({ projectId }: Props) => {
     const [copied, setCopied] = useState(false);
     const [fragmentKey, setFragmentKey] = useState(0);
     const previousUrlRef = useRef<string | null>(null);
 
     const trpc = useTRPC();
-    const { data: sandboxStatus, isFetching, refetch } = useQuery(
+    const { data: sandboxStatus, isFetching, refetch, error } = useQuery(
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
@@ -59,7 +58,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }),
     );
 
-    const previewUrl = sandboxStatus?.sandboxUrl ?? data.sandboxUrl;
+    const previewUrl = sandboxStatus?.sandboxUrl;
     const hasPreview = Boolean(previewUrl);
 
     useEffect(() => {
@@ -83,36 +82,124 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
         }, 2000);
     };
 
-    const statusLabel = useMemo(() => {
-        if (wakeSandbox.isPending) return "Waking sandbox…";
-        // Don't show "Checking sandbox" during background polling - only show actual status
-        // This eliminates the flickering UI issue
+    const statusDescriptor = useMemo(() => {
+        if (wakeSandbox.isPending) {
+            return {
+                label: "Waking sandbox…",
+                caption: "Bringing your sandbox back online…",
+            };
+        }
+
+        if (error) {
+            return {
+                label: "Unable to check sandbox",
+                caption: "We couldn't verify the sandbox. Refresh to try again.",
+            };
+        }
 
         switch (sandboxStatus?.status) {
             case SandboxStatus.RUNNING:
-                return "Live preview ready";
+                return {
+                    label: "Live preview ready",
+                    caption: sandboxStatus.recreated
+                        ? "We restarted a fresh sandbox to keep your files available."
+                        : "Sandboxes stay active for 1 hour with smart auto-pause.",
+                };
             case SandboxStatus.PAUSED:
-                return "Sandbox asleep";
+                return {
+                    label: "Sandbox asleep",
+                    caption: "Auto-paused after inactivity. Wake it to continue.",
+                };
+            case SandboxStatus.STARTING:
             default:
-                return "Preparing sandbox…";
+                return {
+                    label: "Preparing sandbox…",
+                    caption: sandboxStatus?.recreated
+                        ? "We restarted your sandbox and are loading your latest files."
+                        : "Setting up your environment with the latest project files.",
+                };
         }
-    }, [sandboxStatus?.status, wakeSandbox.isPending]);
-
-    const statusCaption = useMemo(() => {
-        if (wakeSandbox.isPending) return "Bringing your sandbox back online…";
-        if (sandboxStatus?.status === SandboxStatus.PAUSED) {
-            return "Auto-paused after 3 minutes of inactivity. Wake it to continue.";
-        }
-        if (sandboxStatus?.recreated) {
-            return "We restarted a fresh sandbox to keep your files available.";
-        }
-        return "Sandboxes stay active for 1 hour with smart auto-pause.";
-    }, [sandboxStatus?.recreated, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [error, sandboxStatus?.recreated, sandboxStatus?.status, wakeSandbox.isPending]);
 
     const statusClasses = getStatusClasses(
         sandboxStatus?.status,
         wakeSandbox.isPending, // Only show pending state during wake, not during background polling
     );
+
+    const previousStatusRef = useRef<SandboxStatus | undefined>();
+
+    useEffect(() => {
+        const previousStatus = previousStatusRef.current;
+        if (
+            sandboxStatus?.status === SandboxStatus.RUNNING &&
+            previousStatus !== SandboxStatus.RUNNING
+        ) {
+            setFragmentKey((prev) => prev + 1);
+        }
+
+        previousStatusRef.current = sandboxStatus?.status;
+    }, [sandboxStatus?.status]);
+
+    const showPreview =
+        sandboxStatus?.status === SandboxStatus.RUNNING && hasPreview && !wakeSandbox.isPending;
+
+    const placeholder = useMemo(() => {
+        if (wakeSandbox.isPending) {
+            return {
+                title: "Waking your sandbox…",
+                description: "Hang tight while we bring your environment back online.",
+                actionLabel: "Starting…",
+                actionDisabled: true,
+            };
+        }
+
+        if (error) {
+            return {
+                title: "We couldn't load the sandbox",
+                description: "Refresh or try waking a new sandbox to continue.",
+                actionLabel: "Wake new sandbox",
+                actionDisabled: false,
+            };
+        }
+
+        if (!sandboxStatus) {
+            return {
+                title: "Checking sandbox status…",
+                description: "Preparing your preview with the latest project files.",
+                actionLabel: "Create sandbox",
+                actionDisabled: false,
+            };
+        }
+
+        if (sandboxStatus.status === SandboxStatus.PAUSED) {
+            return {
+                title: "Sandbox asleep",
+                description: "Wake it to pick up where you left off.",
+                actionLabel: "Wake sandbox",
+                actionDisabled: false,
+            };
+        }
+
+        if (sandboxStatus.status === SandboxStatus.STARTING) {
+            return {
+                title: "Preparing your sandbox…",
+                description: "Loading your files and getting ready to serve the preview.",
+                actionLabel: "Preparing…",
+                actionDisabled: true,
+            };
+        }
+
+        if (!hasPreview) {
+            return {
+                title: "Preview not available yet",
+                description: "We couldn't find a live sandbox. Start a new one to continue.",
+                actionLabel: "Start sandbox",
+                actionDisabled: false,
+            };
+        }
+
+        return null;
+    }, [error, hasPreview, sandboxStatus, wakeSandbox.isPending]);
 
     return (
         <div className="flex h-full w-full flex-col">
@@ -125,15 +212,15 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                         )}
                     >
                         <span className={cn("h-2 w-2 rounded-full", statusClasses.dot)} />
-                        <span>{statusLabel}</span>
+                        <span>{statusDescriptor.label}</span>
                         {sandboxStatus?.recreated && (
                             <span className="text-amber-500">Restarted</span>
                         )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{statusCaption}</p>
+                    <p className="text-xs text-muted-foreground">{statusDescriptor.caption}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    {(sandboxStatus?.status === SandboxStatus.PAUSED || !hasPreview) && (
+                    {(sandboxStatus?.status === SandboxStatus.PAUSED || !showPreview) && (
                         <Button
                             variant="secondary"
                             size="sm"
@@ -163,7 +250,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                             variant="outline"
                             size="sm"
                             onClick={handleCopyClick}
-                            disabled={!hasPreview || copied}
+                            disabled={!showPreview || copied}
                             className="flex-1 justify-start text-start font-normal"
                         >
                             <span className="truncate">
@@ -174,7 +261,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                     <Hint description="Open in new tab" side="bottom" align="start">
                         <Button
                             size="sm"
-                            disabled={!hasPreview}
+                            disabled={!showPreview}
                             variant={"outline"}
                             onClick={() => {
                                 if (!previewUrl) return;
@@ -186,12 +273,54 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                     </Hint>
                 </div>
             </div>
-            <iframe
-                key={fragmentKey}
-                className="h-full w-full"
-                sandbox="allow-forms allow-scripts allow-same-origin"
-                src={previewUrl ?? undefined}
-            />
+            <div className="relative h-full w-full">
+                {showPreview ? (
+                    <iframe
+                        key={fragmentKey}
+                        className="h-full w-full"
+                        sandbox="allow-forms allow-scripts allow-same-origin"
+                        src={previewUrl ?? undefined}
+                    />
+                ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-4 rounded-md border bg-muted/40 px-4 text-center">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex justify-center">
+                                {wakeSandbox.isPending ? (
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                ) : (
+                                    <RefreshCcwIcon className="h-6 w-6 text-muted-foreground" />
+                                )}
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-medium">
+                                    {placeholder?.title ?? statusDescriptor.label}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {placeholder?.description ?? statusDescriptor.caption}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-2">
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => wakeSandbox.mutate({ projectId })}
+                                disabled={placeholder?.actionDisabled}
+                            >
+                                {placeholder?.actionLabel ?? "Wake sandbox"}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onRefreshClick}
+                                disabled={isFetching}
+                            >
+                                {isFetching ? "Refreshing…" : "Refresh status"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
