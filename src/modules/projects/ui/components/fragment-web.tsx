@@ -122,7 +122,7 @@ export const FragmentWeb = ({ projectId }: Props) => {
     }, [error, sandboxStatus?.recreated, sandboxStatus?.status, wakeSandbox.isPending]);
 
     const statusClasses = getStatusClasses(
-        sandboxStatus?.status,
+        error ? undefined : sandboxStatus?.status,
         wakeSandbox.isPending, // Only show pending state during wake, not during background polling
     );
 
@@ -141,7 +141,10 @@ export const FragmentWeb = ({ projectId }: Props) => {
     }, [sandboxStatus?.status]);
 
     const showPreview =
-        sandboxStatus?.status === SandboxStatus.RUNNING && hasPreview && !wakeSandbox.isPending;
+        !error &&
+        sandboxStatus?.status === SandboxStatus.RUNNING &&
+        hasPreview &&
+        !wakeSandbox.isPending;
 
     const placeholder = useMemo(() => {
         if (wakeSandbox.isPending) {
