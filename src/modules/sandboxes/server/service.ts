@@ -6,6 +6,8 @@ import { toFileRecord } from "./file-utils";
 
 const SANDBOX_TEMPLATE = "qai-nextjs-t4";
 
+const SANDBOX_PING_TIMEOUT_MS = 5000;
+
 /**
  * Maximum lifetime duration for a sandbox instance in milliseconds.
  * After this duration, the sandbox will be terminated regardless of activity.
@@ -33,6 +35,36 @@ interface EnsureSandboxResult {
     resumed: boolean;
     requiresHydration: boolean;
     hydrated: boolean;
+}
+
+async function isSandboxReachable(sandboxUrl: string) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), SANDBOX_PING_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(sandboxUrl, {
+            method: "GET",
+            signal: controller.signal,
+        });
+
+        if (!response.ok) {
+            return { reachable: false, missing: response.status === 404 } as const;
+        }
+
+        // The E2B error page returns a 200 with an HTML payload, so we inspect the body
+        // to detect the "Sandbox Not Found" message and trigger an automatic recreation.
+        const body = await response.text();
+        const containsNotFound = body.toLowerCase().includes("sandbox not found");
+        return {
+            reachable: !containsNotFound,
+            missing: containsNotFound,
+        } as const;
+    } catch (error) {
+        console.warn("Sandbox reachability check failed", error);
+        return { reachable: false, missing: false } as const;
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 export async function ensureConnectedSandbox({
@@ -195,19 +227,17 @@ export async function getProjectSandboxStatus(projectId: string) {
             sandboxUrl: ensured.sandboxUrl,
             lastActiveAt: new Date(),
             recreated: true,
+            previewReady: true,
+            state: "created",
         } as const;
     }
 
     try {
-        // Optimized: Return database state immediately without E2B API call
-        // The background scheduler handles idle timeout enforcement
-        // Webhooks keep the database state synchronized with E2B
-        
         const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
         const sandboxUrl = info.sandboxDomain
             ? `https://${info.sandboxDomain}`
             : sandboxRecord.sandboxUrl;
-        
+
         // Use database status as source of truth (updated by webhooks and scheduler)
         const status = sandboxRecord.status;
 
@@ -225,12 +255,37 @@ export async function getProjectSandboxStatus(projectId: string) {
             SANDBOX_LIFETIME_MS,
         ).catch(() => undefined);
 
+        const reachability =
+            status === SandboxStatus.RUNNING && sandboxUrl
+                ? await isSandboxReachable(sandboxUrl)
+                : { reachable: false, missing: false } as const;
+
+        if (status === SandboxStatus.RUNNING && reachability.missing) {
+            const ensured = await ensureConnectedSandbox({
+                projectId,
+                hydrateFiles: files,
+                autoHydrate: true,
+            });
+
+            return {
+                ...fallback,
+                status: SandboxStatus.RUNNING,
+                sandboxUrl: ensured.sandboxUrl,
+                lastActiveAt: new Date(),
+                recreated: true,
+                previewReady: true,
+                state: "recreated",
+            } as const;
+        }
+
         return {
             ...fallback,
             status,
             sandboxUrl,
             lastActiveAt: sandboxRecord.lastActiveAt,
             expiresAt: info.endAt,
+            previewReady: status === SandboxStatus.RUNNING ? reachability.reachable : false,
+            state: (info as { state?: string }).state,
         } as const;
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -246,6 +301,8 @@ export async function getProjectSandboxStatus(projectId: string) {
                 sandboxUrl: ensured.sandboxUrl,
                 lastActiveAt: new Date(),
                 recreated: true,
+                previewReady: true,
+                state: "recreated",
             } as const;
         }
 
