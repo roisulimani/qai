@@ -99,9 +99,19 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
         }, 2000);
     };
 
+    const isSandboxMissing = useMemo(
+        () =>
+            Boolean(
+                error?.message?.toLowerCase().includes("not found") ||
+                    (!isStatusLoading && !wakeSandbox.isPending && !sandboxStatus),
+            ),
+        [error?.message, isStatusLoading, sandboxStatus, wakeSandbox.isPending],
+    );
+
     const statusLabel = useMemo(() => {
         if (wakeSandbox.isPending) return "Starting sandbox…";
         if (isStatusLoading) return "Checking sandbox…";
+        if (isSandboxMissing) return "Sandbox expired. Please recreate.";
         if (error || !sandboxStatus) return "Sandbox unavailable";
 
         switch (sandboxStatus.status) {
@@ -113,11 +123,12 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
             default:
                 return "Preparing sandbox…";
         }
-    }, [error, isStatusLoading, sandboxStatus, wakeSandbox.isPending]);
+    }, [error, isSandboxMissing, isStatusLoading, sandboxStatus, wakeSandbox.isPending]);
 
     const statusCaption = useMemo(() => {
         if (wakeSandbox.isPending) return "Getting your workspace ready…";
         if (isStatusLoading) return "Syncing with your latest project files…";
+        if (isSandboxMissing) return "We couldn’t find your sandbox. Create a new one to continue.";
         if (error) return "We couldn’t reach the sandbox. Create a new one to continue.";
         if (!sandboxStatus) return "Create a sandbox to view your live preview.";
         if (sandboxStatus.status === SandboxStatus.PAUSED) {
@@ -130,7 +141,7 @@ export const FragmentWeb = ({ data: _data, projectId }: Props) => {
             return "We restarted a fresh sandbox with your files.";
         }
         return "Sandboxes stay active for 1 hour with smart auto-pause.";
-    }, [error, isStatusLoading, sandboxStatus, wakeSandbox.isPending]);
+    }, [error, isSandboxMissing, isStatusLoading, sandboxStatus, wakeSandbox.isPending]);
 
     const statusClasses = getStatusClasses(
         sandboxStatus?.status,
