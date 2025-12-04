@@ -256,11 +256,44 @@ export async function getProjectSandboxStatus(projectId: string) {
                     killedAt: now,
                     killedReason: 'not_found',
                     lastVerifiedAt: now,
+                    verificationFailures: 0, // Reset counter since we've determined the issue
                 },
             });
 
             console.log(
                 `[Sandbox Service] Sandbox ${sandboxRecord.sandboxId} not found in E2B, marked as KILLED`,
+            );
+
+            return {
+                ...fallback,
+                status: SandboxStatus.KILLED,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
+            } as const;
+        }
+
+        // Check if error message indicates sandbox doesn't exist (catches 404-style messages)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const is404Error = errorMessage.includes("doesn't exist") || 
+                          errorMessage.includes("not found") ||
+                          errorMessage.includes("404");
+
+        if (is404Error) {
+            // Treat consistent 404 errors as KILLED state
+            const now = new Date();
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: {
+                    status: SandboxStatus.KILLED,
+                    killedAt: now,
+                    killedReason: 'not_found_404',
+                    lastVerifiedAt: now,
+                    verificationFailures: 0,
+                },
+            });
+
+            console.log(
+                `[Sandbox Service] Sandbox ${sandboxRecord.sandboxId} returned 404 error, marked as KILLED`,
             );
 
             return {
@@ -280,11 +313,16 @@ export async function getProjectSandboxStatus(projectId: string) {
 
         console.warn(
             `[Sandbox Service] Failed to verify sandbox ${sandboxRecord.sandboxId} (attempt ${verificationFailures}):`,
-            error instanceof Error ? error.message : String(error),
+            errorMessage,
         );
 
-        // After multiple failures, mark as UNKNOWN
+        // After multiple failures, mark as UNKNOWN (for non-404 errors)
         if (verificationFailures >= 3) {
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: { status: SandboxStatus.UNKNOWN },
+            });
+
             return {
                 ...fallback,
                 status: SandboxStatus.UNKNOWN,

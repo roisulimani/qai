@@ -131,7 +131,7 @@ function getOverlayConfig(status: SandboxStatus): OverlayConfig | null {
                 icon: AlertCircleIcon,
                 title: "Sandbox Not Found",
                 description:
-                    "The sandbox was terminated or deleted. Wake to create a new sandbox with your latest project files.",
+                    "The sandbox was expired. Wake to create a new sandbox with your latest project files.",
                 iconColor: "text-red-600 dark:text-red-400",
                 iconBackground: "bg-red-100 dark:bg-red-900/30",
                 backgroundGradient:

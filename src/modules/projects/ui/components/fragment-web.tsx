@@ -118,7 +118,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
             case SandboxStatus.PAUSED:
                 return "Auto-paused after 3 minutes of inactivity. Wake it to continue.";
             case SandboxStatus.KILLED:
-                return "Sandbox was terminated. Wake to create a new one with your files.";
+                return "Sandbox was expired. Wake to create a new one with your files.";
             case SandboxStatus.EXPIRED:
                 return "Reached 1-hour lifetime limit. Wake to create a fresh sandbox.";
             case SandboxStatus.TERMINATED:
