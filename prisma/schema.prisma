@@ -1,3 +1,7 @@
+// Run "npx prisma migrate dev" for changes migration
+// Run "npx prisma migrate reset" to reset the database - ONLY USE IN DEVELOPMENT
+// Run "npx prisma studio" to view the database
+
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"

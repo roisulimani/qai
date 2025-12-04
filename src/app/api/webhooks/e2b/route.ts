@@ -85,24 +85,25 @@ export async function POST(request: NextRequest) {
         const signature = request.headers.get("e2b-signature");
         
         if (!signature) {
-            console.warn("[E2B Webhook] Missing e2b-signature header - proceeding without verification");
+            console.error("[E2B Webhook] Missing e2b-signature header - rejecting unauthenticated request");
+            return NextResponse.json(
+                { error: "Missing signature" },
+                { status: 401 },
+            );
         }
 
         // Get raw body for signature verification
         const rawBody = await request.text();
 
-        // Verify signature if provided
-        if (signature) {
-            const isValid = verifyWebhookSignature(webhookSecret, rawBody, signature);
-            
-            if (!isValid) {
-                // Signature mismatch - webhook secret in .env doesn't match E2B dashboard
-                // This is non-critical as the background scheduler handles lifecycle independently
-                return NextResponse.json(
-                    { error: "Invalid signature" },
-                    { status: 401 },
-                );
-            }
+        // Verify signature
+        const isValid = verifyWebhookSignature(webhookSecret, rawBody, signature);
+        
+        if (!isValid) {
+            console.error("[E2B Webhook] Invalid signature - webhook secret mismatch");
+            return NextResponse.json(
+                { error: "Invalid signature" },
+                { status: 401 },
+            );
         }
 
         // Parse payload
