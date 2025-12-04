@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
 import { useTRPC } from "@/trpc/client";
 import { cn } from "@/lib/utils";
+import { SandboxStateOverlay } from "@/components/sandbox-state-overlay";
 
 interface Props {
     data: Fragment;
@@ -24,11 +25,27 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const previousUrlRef = useRef<string | null>(null);
 
     const trpc = useTRPC();
-    const { data: sandboxStatus, isFetching, refetch } = useQuery(
+    const { data: sandboxStatus, refetch } = useQuery(
         trpc.sandboxes.status.queryOptions(
             { projectId },
             {
-                refetchInterval: 5000,
+                // Adaptive polling based on sandbox status
+                refetchInterval: (query) => {
+                    const status = query.state.data?.status;
+                    
+                    // No polling when paused - save resources
+                    if (status === SandboxStatus.PAUSED) {
+                        return false;
+                    }
+                    
+                    // Slow polling for running sandboxes (background job handles lifecycle)
+                    if (status === SandboxStatus.RUNNING) {
+                        return 30000; // 30 seconds
+                    }
+                    
+                    // Faster polling during initialization
+                    return 5000; // 5 seconds for STARTING status
+                },
             },
         ),
     );
@@ -36,6 +53,7 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
     const wakeSandbox = useMutation(
         trpc.sandboxes.wake.mutationOptions({
             onSuccess: async () => {
+                // After wake, poll aggressively for a short period to catch state change
                 await refetch();
                 setFragmentKey((prev) => prev + 1);
             },
@@ -68,32 +86,58 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
 
     const statusLabel = useMemo(() => {
         if (wakeSandbox.isPending) return "Waking sandbox…";
-        if (isFetching) return "Checking sandbox…";
+        // Don't show "Checking sandbox" during background polling - only show actual status
+        // This eliminates the flickering UI issue
 
         switch (sandboxStatus?.status) {
             case SandboxStatus.RUNNING:
                 return "Live preview ready";
             case SandboxStatus.PAUSED:
                 return "Sandbox asleep";
+            case SandboxStatus.STARTING:
+                return "Preparing sandbox…";
+            case SandboxStatus.KILLED:
+                return "Sandbox not found";
+            case SandboxStatus.EXPIRED:
+                return "Sandbox expired";
+            case SandboxStatus.TERMINATED:
+                return "Sandbox stopped";
+            case SandboxStatus.UNKNOWN:
+                return "Connection issue";
             default:
                 return "Preparing sandbox…";
         }
-    }, [isFetching, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [sandboxStatus?.status, wakeSandbox.isPending]);
 
     const statusCaption = useMemo(() => {
         if (wakeSandbox.isPending) return "Bringing your sandbox back online…";
-        if (sandboxStatus?.status === SandboxStatus.PAUSED) {
-            return "Auto-paused after 3 minutes of inactivity. Wake it to continue.";
+        
+        const hasRecreatedFlag = sandboxStatus && 'recreated' in sandboxStatus;
+        
+        switch (sandboxStatus?.status) {
+            case SandboxStatus.PAUSED:
+                return "Auto-paused after 3 minutes of inactivity. Wake it to continue.";
+            case SandboxStatus.KILLED:
+                return "Sandbox was expired. Wake to create a new one with your files.";
+            case SandboxStatus.EXPIRED:
+                return "Reached 1-hour lifetime limit. Wake to create a fresh sandbox.";
+            case SandboxStatus.TERMINATED:
+                return "Sandbox was shut down. Wake to restart with your project files.";
+            case SandboxStatus.UNKNOWN:
+                return "Cannot verify sandbox status. Check your connection and try again.";
+            case SandboxStatus.STARTING:
+                return "Setting up your development environment…";
+            default:
+                if (hasRecreatedFlag && (sandboxStatus as { recreated?: boolean }).recreated) {
+                    return "We restarted a fresh sandbox to keep your files available.";
+                }
+                return "Sandboxes stay active for 1 hour with smart auto-pause.";
         }
-        if (sandboxStatus?.recreated) {
-            return "We restarted a fresh sandbox to keep your files available.";
-        }
-        return "Sandboxes stay active for 1 hour with smart auto-pause.";
-    }, [sandboxStatus?.recreated, sandboxStatus?.status, wakeSandbox.isPending]);
+    }, [sandboxStatus, wakeSandbox.isPending]);
 
     const statusClasses = getStatusClasses(
         sandboxStatus?.status,
-        isFetching || wakeSandbox.isPending,
+        wakeSandbox.isPending, // Only show pending state during wake, not during background polling
     );
 
     return (
@@ -108,14 +152,20 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                     >
                         <span className={cn("h-2 w-2 rounded-full", statusClasses.dot)} />
                         <span>{statusLabel}</span>
-                        {sandboxStatus?.recreated && (
+                        {(sandboxStatus && 'recreated' in sandboxStatus && (sandboxStatus as { recreated?: boolean }).recreated) && (
                             <span className="text-amber-500">Restarted</span>
                         )}
                     </div>
                     <p className="text-xs text-muted-foreground">{statusCaption}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    {(sandboxStatus?.status === SandboxStatus.PAUSED || !hasPreview) && (
+                    {([
+                        SandboxStatus.PAUSED,
+                        SandboxStatus.KILLED,
+                        SandboxStatus.EXPIRED,
+                        SandboxStatus.TERMINATED,
+                        SandboxStatus.UNKNOWN,
+                    ].includes(sandboxStatus?.status as SandboxStatus) || !hasPreview) && (
                         <Button
                             variant="secondary"
                             size="sm"
@@ -168,12 +218,23 @@ export const FragmentWeb = ({ data, projectId }: Props) => {
                     </Hint>
                 </div>
             </div>
-            <iframe
-                key={fragmentKey}
-                className="h-full w-full"
-                sandbox="allow-forms allow-scripts allow-same-origin"
-                src={previewUrl ?? undefined}
-            />
+            <div className="relative h-full w-full">
+                {sandboxStatus?.status === SandboxStatus.RUNNING && previewUrl ? (
+                    <iframe
+                        key={fragmentKey}
+                        className="h-full w-full"
+                        sandbox="allow-forms allow-scripts allow-same-origin"
+                        src={previewUrl}
+                    />
+                ) : (
+                    <SandboxStateOverlay
+                        status={sandboxStatus?.status ?? SandboxStatus.STARTING}
+                        onWake={() => wakeSandbox.mutate({ projectId })}
+                        onRetry={refetch}
+                        isWaking={wakeSandbox.isPending}
+                    />
+                )}
+            </div>
         </div>
     );
 };
@@ -199,6 +260,31 @@ function getStatusClasses(
             return {
                 badge: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200",
                 dot: "bg-emerald-500",
+            };
+        case SandboxStatus.KILLED:
+            return {
+                badge: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-200",
+                dot: "bg-red-500",
+            };
+        case SandboxStatus.EXPIRED:
+            return {
+                badge: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-200",
+                dot: "bg-orange-500",
+            };
+        case SandboxStatus.TERMINATED:
+            return {
+                badge: "bg-gray-50 text-gray-700 dark:bg-gray-500/10 dark:text-gray-200",
+                dot: "bg-gray-500",
+            };
+        case SandboxStatus.UNKNOWN:
+            return {
+                badge: "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-200",
+                dot: "bg-yellow-500",
+            };
+        case SandboxStatus.STARTING:
+            return {
+                badge: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200",
+                dot: "bg-blue-500 animate-pulse",
             };
         default:
             return {

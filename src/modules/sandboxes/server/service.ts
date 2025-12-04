@@ -5,8 +5,20 @@ import { SandboxStatus } from "@/generated/prisma";
 import { toFileRecord } from "./file-utils";
 
 const SANDBOX_TEMPLATE = "qai-nextjs-t4";
+
+/**
+ * Maximum lifetime duration for a sandbox instance in milliseconds.
+ * After this duration, the sandbox will be terminated regardless of activity.
+ * Default: 60 minutes (3,600,000 ms)
+ */
 export const SANDBOX_LIFETIME_MS = 60 * 60 * 1000;
-export const SANDBOX_IDLE_TIMEOUT_MS = 3 * 60 * 1000;
+
+/**
+ * Idle timeout duration for a sandbox instance in milliseconds.
+ * If the sandbox has no activity for this duration, it will be paused/stopped.
+ * Default: 5 minutes (300,000 ms)
+ */
+export const SANDBOX_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface EnsureSandboxOptions {
     projectId: string;
@@ -186,27 +198,41 @@ export async function getProjectSandboxStatus(projectId: string) {
         } as const;
     }
 
+    // If sandbox is already in a terminal error state, return it directly
+    if ([
+        SandboxStatus.KILLED,
+        SandboxStatus.EXPIRED,
+        SandboxStatus.TERMINATED,
+    ].includes(sandboxRecord.status)) {
+        return {
+            ...fallback,
+            status: sandboxRecord.status,
+            sandboxUrl: sandboxRecord.sandboxUrl,
+            lastActiveAt: sandboxRecord.lastActiveAt,
+        } as const;
+    }
+
     try {
+        // Verification-first approach: Check E2B API to ensure sandbox exists
         const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
         const sandboxUrl = info.sandboxDomain
             ? `https://${info.sandboxDomain}`
             : sandboxRecord.sandboxUrl;
-        const now = Date.now();
-        const idleMs = now - sandboxRecord.lastActiveAt.getTime();
-        let status = info.state === "paused" ? SandboxStatus.PAUSED : SandboxStatus.RUNNING;
+        
+        // Use database status as source of truth (updated by webhooks and scheduler)
+        const status = sandboxRecord.status;
 
-        if (status === SandboxStatus.RUNNING && idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
-            const paused = await Sandbox.betaPause(sandboxRecord.sandboxId);
-            if (paused) {
-                status = SandboxStatus.PAUSED;
-            }
-        }
-
+        // Update verification timestamp and reset failure counter
         await prisma.projectSandbox.update({
             where: { projectId },
-            data: { status, sandboxUrl },
+            data: {
+                sandboxUrl,
+                lastVerifiedAt: new Date(),
+                verificationFailures: 0,
+            },
         });
 
+        // Extend sandbox lifetime on each status check to prevent premature termination
         await Sandbox.setTimeout(
             sandboxRecord.sandboxId,
             SANDBOX_LIFETIME_MS,
@@ -221,22 +247,97 @@ export async function getProjectSandboxStatus(projectId: string) {
         } as const;
     } catch (error) {
         if (error instanceof NotFoundError) {
-            const ensured = await ensureConnectedSandbox({
-                projectId,
-                hydrateFiles: files,
-                autoHydrate: true,
+            // Sandbox no longer exists in E2B - mark as KILLED
+            const now = new Date();
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: {
+                    status: SandboxStatus.KILLED,
+                    killedAt: now,
+                    killedReason: 'not_found',
+                    lastVerifiedAt: now,
+                    verificationFailures: 0, // Reset counter since we've determined the issue
+                },
+            });
+
+            console.log(
+                `[Sandbox Service] Sandbox ${sandboxRecord.sandboxId} not found in E2B, marked as KILLED`,
+            );
+
+            return {
+                ...fallback,
+                status: SandboxStatus.KILLED,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
+            } as const;
+        }
+
+        // Check if error message indicates sandbox doesn't exist (catches 404-style messages)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const is404Error = errorMessage.includes("doesn't exist") || 
+                          errorMessage.includes("not found") ||
+                          errorMessage.includes("404");
+
+        if (is404Error) {
+            // Treat consistent 404 errors as KILLED state
+            const now = new Date();
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: {
+                    status: SandboxStatus.KILLED,
+                    killedAt: now,
+                    killedReason: 'not_found_404',
+                    lastVerifiedAt: now,
+                    verificationFailures: 0,
+                },
+            });
+
+            console.log(
+                `[Sandbox Service] Sandbox ${sandboxRecord.sandboxId} returned 404 error, marked as KILLED`,
+            );
+
+            return {
+                ...fallback,
+                status: SandboxStatus.KILLED,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
+            } as const;
+        }
+
+        // Handle transient errors (network, timeout, etc.)
+        const verificationFailures = sandboxRecord.verificationFailures + 1;
+        await prisma.projectSandbox.update({
+            where: { projectId },
+            data: { verificationFailures },
+        });
+
+        console.warn(
+            `[Sandbox Service] Failed to verify sandbox ${sandboxRecord.sandboxId} (attempt ${verificationFailures}):`,
+            errorMessage,
+        );
+
+        // After multiple failures, mark as UNKNOWN (for non-404 errors)
+        if (verificationFailures >= 3) {
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: { status: SandboxStatus.UNKNOWN },
             });
 
             return {
                 ...fallback,
-                status: SandboxStatus.RUNNING,
-                sandboxUrl: ensured.sandboxUrl,
-                lastActiveAt: new Date(),
-                recreated: true,
+                status: SandboxStatus.UNKNOWN,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
             } as const;
         }
 
-        throw error;
+        // Return current database state for transient errors
+        return {
+            ...fallback,
+            status: sandboxRecord.status,
+            sandboxUrl: sandboxRecord.sandboxUrl,
+            lastActiveAt: sandboxRecord.lastActiveAt,
+        } as const;
     }
 }
 
