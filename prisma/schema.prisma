@@ -1,13 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// Run "npx prisma migrate dev" for changes migration
-// Run "npx prisma migrate reset" to reset the database - ONLY USE IN DEVELOPMENT
-// Run "npx prisma studio" to view the database
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -19,63 +9,117 @@ datasource db {
 }
 
 model Project {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isFavorite Boolean @default(false)
-
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
+  id                  String          @id @default(uuid())
+  name                String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  isFavorite          Boolean         @default(false)
+  companyId           String
   conversationSummary String?
-
-  messages Message[]
-  agentActions AgentAction[]
-  sandbox   ProjectSandbox?
+  agentActions        AgentAction[]
+  messages            Message[]
+  company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sandbox             ProjectSandbox?
 }
 
 model Company {
-  id                 String   @id @default(uuid())
-  name               String
-  codeLabel          String?
-  codeHash           String   @unique
-  creditBalance      Int      @default(0)
-  totalCreditsGranted Int     @default(0)
-  totalCreditsSpent  Int      @default(0)
-  projectsCreated    Int      @default(0)
-  lastActiveAt       DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  buildTourCompleted     Boolean @default(false)
-  projectsTourCompleted  Boolean @default(false)
-  projectViewTourCompleted Boolean @default(false)
-
-  sessions           CompanySession[]
-  projects           Project[]
-  creditTransactions CreditTransaction[]
+  id                       String              @id @default(uuid())
+  name                     String
+  codeLabel                String?
+  codeHash                 String              @unique
+  creditBalance            Int                 @default(0)
+  totalCreditsGranted      Int                 @default(0)
+  totalCreditsSpent        Int                 @default(0)
+  projectsCreated          Int                 @default(0)
+  lastActiveAt             DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  buildTourCompleted       Boolean             @default(false)
+  projectsTourCompleted    Boolean             @default(false)
+  projectViewTourCompleted Boolean             @default(false)
+  sessions                 CompanySession[]
+  creditTransactions       CreditTransaction[]
+  projects                 Project[]
 }
 
 model CompanySession {
-  id         String   @id @default(uuid())
-  token      String   @unique
+  id         String    @id @default(uuid())
+  token      String    @unique
   companyId  String
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   expiresAt  DateTime?
-  lastSeenAt DateTime @default(now())
+  lastSeenAt DateTime  @default(now())
   userAgent  String?
   ipAddress  String?
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model CreditTransaction {
   id        String   @id @default(uuid())
   companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   amount    Int
   reason    String
   metadata  Json?
   createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String      @id @default(uuid())
+  content   String
+  role      MessageRole
+  type      MessageType
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  projectId String
+  fragment  Fragment?
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Fragment {
+  id         String   @id @default(uuid())
+  messageId  String   @unique
+  sandboxUrl String
+  title      String
+  files      Json
+  summary    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model ProjectSandbox {
+  id           String        @id @default(uuid())
+  projectId    String        @unique
+  sandboxId    String
+  sandboxUrl   String
+  status       SandboxStatus @default(STARTING)
+  lastActiveAt DateTime      @default(now())
+  
+  // Enhanced state tracking
+  lastVerifiedAt       DateTime? // Last successful E2B API verification
+  verificationFailures Int       @default(0) // Consecutive verification failures
+  killedAt             DateTime? // Timestamp when marked as KILLED
+  killedReason         String?   // Why sandbox was killed (manual, expired, terminated)
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AgentAction {
+  id          String            @id @default(uuid())
+  projectId   String
+  key         AgentActionKey
+  label       String
+  detail      String?
+  status      AgentActionStatus @default(IN_PROGRESS)
+  metadata    Json?
+  startedAt   DateTime          @default(now())
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 enum MessageRole {
@@ -86,33 +130,6 @@ enum MessageRole {
 enum MessageType {
   RESULT
   ERROR
-}
-
-model Message {
-  id        String      @id @default(uuid())
-  content   String
-  role      MessageRole
-  type      MessageType
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  fragment Fragment?
-}
-
-model Fragment {
-  id        String  @id @default(uuid())
-  messageId String  @unique
-  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-
-  sandboxUrl String
-  title      String
-  files      Json
-  summary    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 }
 
 enum AgentActionStatus {
@@ -138,33 +155,8 @@ enum SandboxStatus {
   STARTING
   RUNNING
   PAUSED
-}
-
-model ProjectSandbox {
-  id        String         @id @default(uuid())
-  projectId String         @unique
-  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  sandboxId    String
-  sandboxUrl   String
-  status       SandboxStatus @default(STARTING)
-  lastActiveAt DateTime      @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AgentAction {
-  id          String           @id @default(uuid())
-  projectId   String
-  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  key         AgentActionKey
-  label       String
-  detail      String?
-  status      AgentActionStatus @default(IN_PROGRESS)
-  metadata    Json?
-  startedAt   DateTime         @default(now())
-  completedAt DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  KILLED          // Manually terminated via dashboard or API
+  EXPIRED         // Reached maximum lifetime timeout
+  TERMINATED      // System or user intentional shutdown
+  UNKNOWN         // Cannot verify state (API errors)
 }

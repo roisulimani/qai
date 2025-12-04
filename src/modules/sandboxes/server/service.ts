@@ -198,11 +198,22 @@ export async function getProjectSandboxStatus(projectId: string) {
         } as const;
     }
 
+    // If sandbox is already in a terminal error state, return it directly
+    if ([
+        SandboxStatus.KILLED,
+        SandboxStatus.EXPIRED,
+        SandboxStatus.TERMINATED,
+    ].includes(sandboxRecord.status)) {
+        return {
+            ...fallback,
+            status: sandboxRecord.status,
+            sandboxUrl: sandboxRecord.sandboxUrl,
+            lastActiveAt: sandboxRecord.lastActiveAt,
+        } as const;
+    }
+
     try {
-        // Optimized: Return database state immediately without E2B API call
-        // The background scheduler handles idle timeout enforcement
-        // Webhooks keep the database state synchronized with E2B
-        
+        // Verification-first approach: Check E2B API to ensure sandbox exists
         const info = await Sandbox.getFullInfo(sandboxRecord.sandboxId);
         const sandboxUrl = info.sandboxDomain
             ? `https://${info.sandboxDomain}`
@@ -211,13 +222,15 @@ export async function getProjectSandboxStatus(projectId: string) {
         // Use database status as source of truth (updated by webhooks and scheduler)
         const status = sandboxRecord.status;
 
-        // Update sandbox URL if it changed, but don't modify status
-        if (sandboxUrl !== sandboxRecord.sandboxUrl) {
-            await prisma.projectSandbox.update({
-                where: { projectId },
-                data: { sandboxUrl },
-            });
-        }
+        // Update verification timestamp and reset failure counter
+        await prisma.projectSandbox.update({
+            where: { projectId },
+            data: {
+                sandboxUrl,
+                lastVerifiedAt: new Date(),
+                verificationFailures: 0,
+            },
+        });
 
         // Extend sandbox lifetime on each status check to prevent premature termination
         await Sandbox.setTimeout(
@@ -234,22 +247,97 @@ export async function getProjectSandboxStatus(projectId: string) {
         } as const;
     } catch (error) {
         if (error instanceof NotFoundError) {
-            const ensured = await ensureConnectedSandbox({
-                projectId,
-                hydrateFiles: files,
-                autoHydrate: true,
+            // Sandbox no longer exists in E2B - mark as KILLED
+            const now = new Date();
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: {
+                    status: SandboxStatus.KILLED,
+                    killedAt: now,
+                    killedReason: 'not_found',
+                    lastVerifiedAt: now,
+                    verificationFailures: 0, // Reset counter since we've determined the issue
+                },
+            });
+
+            console.log(
+                `[Sandbox Service] Sandbox ${sandboxRecord.sandboxId} not found in E2B, marked as KILLED`,
+            );
+
+            return {
+                ...fallback,
+                status: SandboxStatus.KILLED,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
+            } as const;
+        }
+
+        // Check if error message indicates sandbox doesn't exist (catches 404-style messages)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const is404Error = errorMessage.includes("doesn't exist") || 
+                          errorMessage.includes("not found") ||
+                          errorMessage.includes("404");
+
+        if (is404Error) {
+            // Treat consistent 404 errors as KILLED state
+            const now = new Date();
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: {
+                    status: SandboxStatus.KILLED,
+                    killedAt: now,
+                    killedReason: 'not_found_404',
+                    lastVerifiedAt: now,
+                    verificationFailures: 0,
+                },
+            });
+
+            console.log(
+                `[Sandbox Service] Sandbox ${sandboxRecord.sandboxId} returned 404 error, marked as KILLED`,
+            );
+
+            return {
+                ...fallback,
+                status: SandboxStatus.KILLED,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
+            } as const;
+        }
+
+        // Handle transient errors (network, timeout, etc.)
+        const verificationFailures = sandboxRecord.verificationFailures + 1;
+        await prisma.projectSandbox.update({
+            where: { projectId },
+            data: { verificationFailures },
+        });
+
+        console.warn(
+            `[Sandbox Service] Failed to verify sandbox ${sandboxRecord.sandboxId} (attempt ${verificationFailures}):`,
+            errorMessage,
+        );
+
+        // After multiple failures, mark as UNKNOWN (for non-404 errors)
+        if (verificationFailures >= 3) {
+            await prisma.projectSandbox.update({
+                where: { projectId },
+                data: { status: SandboxStatus.UNKNOWN },
             });
 
             return {
                 ...fallback,
-                status: SandboxStatus.RUNNING,
-                sandboxUrl: ensured.sandboxUrl,
-                lastActiveAt: new Date(),
-                recreated: true,
+                status: SandboxStatus.UNKNOWN,
+                sandboxUrl: sandboxRecord.sandboxUrl,
+                lastActiveAt: sandboxRecord.lastActiveAt,
             } as const;
         }
 
-        throw error;
+        // Return current database state for transient errors
+        return {
+            ...fallback,
+            status: sandboxRecord.status,
+            sandboxUrl: sandboxRecord.sandboxUrl,
+            lastActiveAt: sandboxRecord.lastActiveAt,
+        } as const;
     }
 }
 
