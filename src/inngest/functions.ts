@@ -36,6 +36,9 @@ import { toFileRecord } from "@/modules/sandboxes/server/file-utils";
 import { Sandbox } from "@e2b/code-interpreter";
 import { SandboxStatus } from "@/generated/prisma";
 
+const stripNullCharacters = (value?: string | null) =>
+  (value ?? "").replace(/\u0000/g, "");
+
 interface AgentState {
   summary: string;
   files: { [path: string]: string };
@@ -321,11 +324,13 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
+    const sanitizedUserInput = stripNullCharacters(event.data.value);
+
     const conversationPayload = buildConversationPayload({
       projectSummary,
       messages,
       latestUserMessage,
-      userInput: event.data.value,
+      userInput: sanitizedUserInput,
     });
 
     const result = await runTrackedAgentAction({
@@ -367,10 +372,12 @@ export const codeAgentFunction = inngest.createFunction(
           });
         }
 
+        const sanitizedSummary = stripNullCharacters(result.state.data.summary);
+
         const assistantMessage = await prisma.message.create({
           data: {
             projectId,
-            content: result.state.data.summary,
+            content: sanitizedSummary,
             role: "ASSISTANT",
             type: "RESULT",
             fragment: {
@@ -378,7 +385,7 @@ export const codeAgentFunction = inngest.createFunction(
                 sandboxUrl,
                 title: "Fragmented UI Coding Agent",
                 files: result.state.data.files,
-                summary: result.state.data.summary,
+                summary: sanitizedSummary,
               },
             },
           },
@@ -386,8 +393,8 @@ export const codeAgentFunction = inngest.createFunction(
 
         const updatedSummary = computeRollingConversationSummary({
           previousSummary: projectSummary,
-          userMessage: event.data.value,
-          assistantMessage: result.state.data.summary ?? "",
+          userMessage: sanitizedUserInput,
+          assistantMessage: sanitizedSummary,
         });
 
         await prisma.project.update({

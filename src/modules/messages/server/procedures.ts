@@ -7,6 +7,9 @@ import { inngest } from '@/inngest/client';
 import { recordMessageSendSpend } from '@/modules/companies/server/credits';
 import { getModelConfig, MODEL_IDS } from "@/modules/models/constants";
 
+const stripNullCharacters = (value?: string | null) =>
+  (value ?? "").replace(/\u0000/g, "");
+
 export const messagesRouter = createTRPCRouter({
 
     getMany: companyProcedure
@@ -62,10 +65,12 @@ export const messagesRouter = createTRPCRouter({
         const selectedModel = getModelConfig(input.model);
         const creditMultiplier = selectedModel?.creditMultiplier ?? 1;
 
+        const sanitizedValue = stripNullCharacters(input.value);
+
         const newMessage = await prisma.message.create({
             data: {
                 projectId: input.projectId,
-                content: input.value,
+                content: sanitizedValue,
                 role: "USER",
                 type: "RESULT",
             },
@@ -77,7 +82,7 @@ export const messagesRouter = createTRPCRouter({
         await inngest.send({
             name: "code-agent/run",
             data: {
-              value: input.value,
+              value: sanitizedValue,
               projectId: input.projectId,
               companyId: ctx.company.id,
               model: input.model,
