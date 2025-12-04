@@ -68,9 +68,17 @@ export const recordMessageSendSpend = async (
   companyId: string,
   projectId: string,
   messageId: string,
+  options?: { modelId?: string | null; creditMultiplier?: number },
 ) => {
-  await spendCredits(companyId, MESSAGE_CREDIT_COST, "message_sent", {
+  const multiplier = options?.creditMultiplier ?? 1;
+  const cost = Math.max(1, Math.round(MESSAGE_CREDIT_COST * multiplier));
+
+  await spendCredits(companyId, cost, "message_sent", {
     projectId,
     messageId,
+    modelId: options?.modelId,
+    baseCost: MESSAGE_CREDIT_COST,
+    appliedCost: cost,
+    creditMultiplier: multiplier,
   });
 };

@@ -21,7 +21,7 @@ import {
   resetAgentActions,
   runTrackedAgentAction,
 } from "@/modules/projects/server/agent-actions";
-import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
+import { DEFAULT_MODEL, getModelConfig, MODEL_IDS } from "@/modules/models/constants";
 import {
   PROJECT_NAME_MODEL,
   PROJECT_NAME_PLACEHOLDER,
@@ -63,18 +63,24 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     const latestFragmentFiles = toFileRecord(latestFragment?.files);
-    const requestedModel =
+    const requestedModelConfig =
       typeof event.data.model === "string" &&
       (MODEL_IDS as readonly string[]).includes(event.data.model)
-        ? (event.data.model as (typeof MODEL_IDS)[number])
-        : DEFAULT_MODEL;
+        ? getModelConfig(event.data.model)
+        : getModelConfig(DEFAULT_MODEL);
+
+    const requestedModel = requestedModelConfig.id;
 
     await runTrackedAgentAction({
       step,
       projectId,
       key: AgentActionKey.INITIALIZE,
-      detail: `Using ${requestedModel}`,
-      metadata: { model: requestedModel },
+      detail: `Using ${requestedModelConfig.label}`,
+      metadata: {
+        model: requestedModel,
+        provider: requestedModelConfig.provider,
+        creditMultiplier: requestedModelConfig.creditMultiplier,
+      },
       handler: async () => {},
     });
 

@@ -41,7 +41,7 @@ export const BuildOnboarding = () => {
             {
                 title: "Pick the right model",
                 description:
-                    "Select from curated OpenAI models directly in the form. Each choice notes its strengths so you can match it to the task.",
+                    "Select from curated models (OpenAI, Anthropic, Mistral) directly in the form. Each choice lists strengths and credit impact so you can match it to the task.",
             },
             {
                 title: "Track credits in real time",

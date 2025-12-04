@@ -45,7 +45,15 @@ export const ModelSelect = ({
                         className="rounded-xl px-3 py-2 text-sm focus:bg-muted/60"
                     >
                         <div className="flex flex-col text-left">
-                            <span className="font-medium">{option.label}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium">{option.label}</span>
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    {option.provider}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">
+                                    Credits: {option.creditMultiplier}x
+                                </span>
+                            </div>
                             <span className="text-xs text-muted-foreground">{option.description}</span>
                         </div>
                     </SelectItem>

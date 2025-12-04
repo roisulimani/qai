@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { inngest } from '@/inngest/client';
 import { recordMessageSendSpend } from '@/modules/companies/server/credits';
-import { MODEL_IDS } from "@/modules/models/constants";
+import { getModelConfig, MODEL_IDS } from "@/modules/models/constants";
 
 export const messagesRouter = createTRPCRouter({
 
@@ -58,6 +58,10 @@ export const messagesRouter = createTRPCRouter({
         if (!project || project.companyId !== ctx.company.id) {
             throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
         }
+
+        const selectedModel = getModelConfig(input.model);
+        const creditMultiplier = selectedModel?.creditMultiplier ?? 1;
+
         const newMessage = await prisma.message.create({
             data: {
                 projectId: input.projectId,
@@ -66,7 +70,10 @@ export const messagesRouter = createTRPCRouter({
                 type: "RESULT",
             },
         });
-        await recordMessageSendSpend(ctx.company.id, input.projectId, newMessage.id);
+        await recordMessageSendSpend(ctx.company.id, input.projectId, newMessage.id, {
+            modelId: selectedModel?.id,
+            creditMultiplier,
+        });
         await inngest.send({
             name: "code-agent/run",
             data: {
