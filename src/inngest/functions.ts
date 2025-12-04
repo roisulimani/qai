@@ -572,9 +572,11 @@ function truncateSummary(value: string, maxLength: number) {
 }
 
 /**
- * Background scheduler function that enforces idle timeout policy across all sandboxes.
- * Runs every 2 minutes to check for sandboxes that have been idle for more than 3 minutes.
- * Pauses idle sandboxes to conserve resources.
+ * Background scheduler function that enforces idle timeout policy and reconciles sandbox states.
+ * Runs every 20 minutes to:
+ * 1. Check for sandboxes that have been idle for more than 3 minutes and pause them
+ * 2. Verify existence of RUNNING/PAUSED sandboxes in E2B and mark missing ones as KILLED
+ * 3. Synchronize database state with E2B reality
  */
 export const sandboxIdleEnforcerFunction = inngest.createFunction(
   { id: "sandbox-idle-enforcer" },
@@ -583,61 +585,96 @@ export const sandboxIdleEnforcerFunction = inngest.createFunction(
   async ({ step }) => {
     const result = await step.run("enforce-idle-timeout", async () => {
       const startTime = Date.now();
-      console.log("[Sandbox Idle Enforcer] Starting idle timeout enforcement");
+      console.log("[Sandbox Idle Enforcer] Starting idle timeout enforcement and state reconciliation");
 
       try {
-        // Query all running sandboxes
-        const runningSandboxes = await prisma.projectSandbox.findMany({
+        // Query all RUNNING and PAUSED sandboxes for verification
+        const activeSandboxes = await prisma.projectSandbox.findMany({
           where: {
-            status: SandboxStatus.RUNNING,
+            status: {
+              in: [SandboxStatus.RUNNING, SandboxStatus.PAUSED],
+            },
           },
           select: {
             id: true,
             projectId: true,
             sandboxId: true,
+            status: true,
             lastActiveAt: true,
           },
         });
 
         console.log(
-          `[Sandbox Idle Enforcer] Found ${runningSandboxes.length} running sandboxes to check`,
+          `[Sandbox Idle Enforcer] Found ${activeSandboxes.length} active sandboxes to check`,
         );
 
         const now = Date.now();
         let pausedCount = 0;
+        let killedCount = 0;
         let errorCount = 0;
         const errors: Array<{ projectId: string; error: string }> = [];
 
-        // Check each sandbox for idle timeout
-        for (const sandbox of runningSandboxes) {
+        // Check each sandbox
+        for (const sandbox of activeSandboxes) {
           try {
-            const idleMs = now - sandbox.lastActiveAt.getTime();
-
-            if (idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
-              console.log(
-                `[Sandbox Idle Enforcer] Pausing idle sandbox for project ${sandbox.projectId} (idle for ${Math.round(idleMs / 1000)}s)`,
-              );
-
-              // Pause the sandbox via E2B API
-              const paused = await Sandbox.betaPause(sandbox.sandboxId);
-
-              if (paused) {
-                // Update database status
+            // First, verify sandbox still exists in E2B
+            try {
+              await Sandbox.getFullInfo(sandbox.sandboxId);
+              // Sandbox exists, proceed with idle check
+            } catch (verifyError) {
+              if (verifyError instanceof Error && verifyError.message.includes('not found')) {
+                // Sandbox doesn't exist in E2B - mark as KILLED
                 await prisma.projectSandbox.update({
                   where: { id: sandbox.id },
                   data: {
-                    status: SandboxStatus.PAUSED,
+                    status: SandboxStatus.KILLED,
+                    killedAt: new Date(),
+                    killedReason: 'scheduler_orphaned',
                   },
                 });
-
-                pausedCount++;
+                killedCount++;
                 console.log(
-                  `[Sandbox Idle Enforcer] Successfully paused sandbox for project ${sandbox.projectId}`,
+                  `[Sandbox Idle Enforcer] Marked orphaned sandbox ${sandbox.sandboxId} as KILLED (project: ${sandbox.projectId})`,
                 );
-              } else {
-                console.warn(
-                  `[Sandbox Idle Enforcer] Failed to pause sandbox for project ${sandbox.projectId} - API returned false`,
+                continue; // Skip idle check for killed sandbox
+              }
+              // Other verification errors - log and continue
+              console.warn(
+                `[Sandbox Idle Enforcer] Failed to verify sandbox ${sandbox.sandboxId}:`,
+                verifyError,
+              );
+            }
+
+            // Only check idle timeout for RUNNING sandboxes
+            if (sandbox.status === SandboxStatus.RUNNING) {
+              const idleMs = now - sandbox.lastActiveAt.getTime();
+
+              if (idleMs >= SANDBOX_IDLE_TIMEOUT_MS) {
+                console.log(
+                  `[Sandbox Idle Enforcer] Pausing idle sandbox for project ${sandbox.projectId} (idle for ${Math.round(idleMs / 1000)}s)`,
                 );
+
+                // Pause the sandbox via E2B API
+                const paused = await Sandbox.betaPause(sandbox.sandboxId);
+
+                if (paused) {
+                  // Update database status
+                  await prisma.projectSandbox.update({
+                    where: { id: sandbox.id },
+                    data: {
+                      status: SandboxStatus.PAUSED,
+                    },
+                  });
+
+                  pausedCount++;
+                  console.log(
+                    `[Sandbox Idle Enforcer] Successfully paused sandbox for project ${sandbox.projectId}`,
+                  );
+                } else {
+                  console.warn(
+                    `[Sandbox Idle Enforcer] Failed to pause sandbox for project ${sandbox.projectId} - API returned false`,
+                  );
+                }
               }
             }
           } catch (error) {
@@ -649,7 +686,7 @@ export const sandboxIdleEnforcerFunction = inngest.createFunction(
               error: errorMessage,
             });
             console.error(
-              `[Sandbox Idle Enforcer] Error pausing sandbox for project ${sandbox.projectId}:`,
+              `[Sandbox Idle Enforcer] Error processing sandbox for project ${sandbox.projectId}:`,
               errorMessage,
             );
             // Continue processing other sandboxes even if one fails
@@ -659,15 +696,16 @@ export const sandboxIdleEnforcerFunction = inngest.createFunction(
         const duration = Date.now() - startTime;
 
         const summary = {
-          totalChecked: runningSandboxes.length,
+          totalChecked: activeSandboxes.length,
           pausedCount,
+          killedCount,
           errorCount,
           durationMs: duration,
           errors: errors.length > 0 ? errors : undefined,
         };
 
         console.log(
-          `[Sandbox Idle Enforcer] Completed: ${pausedCount} paused, ${errorCount} errors, ${duration}ms`,
+          `[Sandbox Idle Enforcer] Completed: ${pausedCount} paused, ${killedCount} marked as killed, ${errorCount} errors, ${duration}ms`,
         );
 
         return summary;

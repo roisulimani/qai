@@ -186,17 +186,22 @@ export async function POST(request: NextRequest) {
             }
 
             case "sandbox.lifecycle.killed": {
-                // Find and delete sandbox record
+                // Preserve record and mark as KILLED instead of deleting
                 const sandbox = await prisma.projectSandbox.findFirst({
                     where: { sandboxId },
                 });
 
                 if (sandbox) {
-                    await prisma.projectSandbox.delete({
+                    await prisma.projectSandbox.update({
                         where: { id: sandbox.id },
+                        data: {
+                            status: SandboxStatus.KILLED,
+                            killedAt: new Date(timestamp),
+                            killedReason: 'manual_kill',
+                        },
                     });
                     console.log(
-                        `[E2B Webhook] Deleted sandbox ${sandboxId} (project: ${sandbox.projectId})`,
+                        `[E2B Webhook] Marked sandbox ${sandboxId} as KILLED (project: ${sandbox.projectId})`,
                     );
                 }
                 break;
