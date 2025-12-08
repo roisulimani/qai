@@ -1,6 +1,4 @@
 import {
-  openai,
-  createAgent,
   createTool,
   createNetwork,
   createState,
@@ -22,6 +20,7 @@ import {
   runTrackedAgentAction,
 } from "@/modules/projects/server/agent-actions";
 import { DEFAULT_MODEL, MODEL_IDS } from "@/modules/models/constants";
+import { ProviderFactory } from "@/modules/models/providers/factory";
 import {
   PROJECT_NAME_MODEL,
   PROJECT_NAME_PLACEHOLDER,
@@ -120,16 +119,12 @@ export const codeAgentFunction = inngest.createFunction(
         },
       });
     }
-    // Create a new agent with a system prompt
-    const codeAgent = createAgent<AgentState>({
-      name: "codeAgent",
-      system: PROMPT,
-      model: openai({
-        model: requestedModel,
-        defaultParameters: {
-          temperature: 0.1,
-        },
-      }),
+    // Create agent using provider factory
+    const { adapter } = ProviderFactory.getProviderAdapter(requestedModel);
+    
+    const codeAgent = adapter.createAgent({
+      modelId: requestedModel,
+      systemPrompt: PROMPT,
       tools: [
         createTool({
           name: "terminal",

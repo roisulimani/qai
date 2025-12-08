@@ -1,11 +1,10 @@
 import { TRPCError } from "@trpc/server";
-
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { inngest } from '@/inngest/client';
 import { recordMessageSendSpend } from '@/modules/companies/server/credits';
-import { MODEL_IDS } from "@/modules/models/constants";
+import { MODEL_IDS } from "@/modules/models/registry";
 
 export const messagesRouter = createTRPCRouter({
 
