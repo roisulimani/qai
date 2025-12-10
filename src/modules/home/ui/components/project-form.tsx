@@ -60,6 +60,7 @@ export const ProjectForm = () => {
     }));
 
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
+        if (isBusy) return;
         await createProject.mutateAsync({
             value: data.message,
             model: data.model,
@@ -76,11 +77,12 @@ export const ProjectForm = () => {
 
     const [isFocused, setIsFocused] = useState(false);
     const isPending = createProject.isPending;
+    const isBusy = isPending;
     const creditBalance = company?.creditBalance;
     const isCreditBalanceKnown = typeof creditBalance === "number";
     const hasCredits = isCreditBalanceKnown ? creditBalance > 0 : true;
     const shouldShowOutOfCredits = !isCompanyLoading && isCreditBalanceKnown && !hasCredits;
-    const isButtonDisabled = isPending || !form.formState.isValid || !hasCredits;
+    const isButtonDisabled = isBusy || !form.formState.isValid || !hasCredits;
     
     return (
         <Form {...form}>
@@ -98,7 +100,6 @@ export const ProjectForm = () => {
                         render={({ field }) => (
                             <TextareaAutosize
                                 {...field}
-                                disabled={isPending}
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
                                 minRows={2}
@@ -106,6 +107,7 @@ export const ProjectForm = () => {
                                 className="pt-4 resize-none border-none w-full outline-none bg-transparent"
                                 placeholder="What do you want to build?"
                                 onKeyDown={(e) => {
+                                    if (isBusy) return;
                                     if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
                                         e.preventDefault();
                                         form.handleSubmit(onSubmit)(e);
@@ -148,17 +150,19 @@ export const ProjectForm = () => {
                                     <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                                         <span>&#8984;</span>Enter
                                     </kbd>
-                                    <span className="ml-1">to launch</span>
+                                    <span className="ml-1">{isBusy ? "agent running" : "to launch"}</span>
                                 </div>
                                 <Button
                                     type="submit"
                                     disabled={isButtonDisabled}
                                     className={cn(
-                                        "size-8 rounded-full",
+                                        "size-8 rounded-full bg-foreground text-background shadow-lg shadow-black/10 transition-all hover:bg-foreground/90",
                                         isButtonDisabled && "cursor-not-allowed opacity-50",
                                     )}
+                                    aria-label="Send launch prompt"
+                                    title={isBusy ? "The agent is working. Please wait for it to finish before sending another request." : "Send launch prompt"}
                                 >
-                                    {isPending ? (
+                                    {isBusy ? (
                                         <Loader2Icon className="size-4 animate-spin" />
                                     ) : (
                                         <ArrowUpIcon className="size-4" />

@@ -16,6 +16,7 @@ import { ModelSelect } from "@/modules/models/ui/model-select";
 
 interface Props {
     projectId: string;
+    isAgentWorking?: boolean;
 };
 
 const formSchema = z.object({
@@ -25,7 +26,7 @@ const formSchema = z.object({
     model: z.enum(MODEL_IDS),
 });
 
-export const MessageForm = ({ projectId }: Props) => {
+export const MessageForm = ({ projectId, isAgentWorking = false }: Props) => {
 
     const trpc = useTRPC();
     const queryClient = useQueryClient();
@@ -58,6 +59,7 @@ export const MessageForm = ({ projectId }: Props) => {
     }));
 
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
+        if (isBusy) return;
         await createMessage.mutateAsync({
             value: data.message,
             projectId,
@@ -68,7 +70,8 @@ export const MessageForm = ({ projectId }: Props) => {
     const [isFocused, setIsFocused] = useState(false);
     const showUsage = false;
     const isPending = createMessage.isPending;
-    const isButtonDisabled = isPending || !form.formState.isValid;
+    const isBusy = isPending || isAgentWorking;
+    const isButtonDisabled = isBusy || !form.formState.isValid;
     
     return (
         <Form {...form}>
@@ -86,7 +89,6 @@ export const MessageForm = ({ projectId }: Props) => {
                     render={({ field }) => (
                         <TextareaAutosize
                             {...field}
-                            disabled={isPending}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                             minRows={2}
@@ -94,6 +96,7 @@ export const MessageForm = ({ projectId }: Props) => {
                             className="pt-4 resize-none border-none w-full outline-none bg-transparent"
                             placeholder="What do you want to build?"
                             onKeyDown={(e) => {
+                                if (isBusy) return;
                                 if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
                                     e.preventDefault();
                                     form.handleSubmit(onSubmit)(e);
@@ -130,17 +133,19 @@ export const MessageForm = ({ projectId }: Props) => {
                             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                                 <span>&#8984;</span>Enter
                             </kbd>
-                            <span className="ml-1">to send</span>
+                            <span className="ml-1">{isBusy ? "agent running" : "to send"}</span>
                         </div>
                         <Button
                             type="submit"
                             disabled={isButtonDisabled}
                             className={cn(
-                                "size-8 rounded-full",
+                                "size-8 rounded-full bg-foreground text-background shadow-lg shadow-black/10 transition-all hover:bg-foreground/90",
                                 isButtonDisabled && "opacity-50 cursor-not-allowed",
                             )}
+                            aria-label="Send message"
+                            title={isBusy ? "The agent is working. Please wait for it to finish before sending another request." : "Send message"}
                         >
-                            {isPending ? (
+                            {isBusy ? (
                                 <Loader2Icon className="size-4 animate-spin" />
                             ) : (
                                 <ArrowUpIcon className="size-4" />
