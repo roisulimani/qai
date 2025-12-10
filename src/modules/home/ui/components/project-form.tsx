@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowUpIcon, CircleStopIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, Loader2Icon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
@@ -60,6 +60,7 @@ export const ProjectForm = () => {
     }));
 
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
+        if (isBusy) return;
         await createProject.mutateAsync({
             value: data.message,
             model: data.model,
@@ -99,7 +100,6 @@ export const ProjectForm = () => {
                         render={({ field }) => (
                             <TextareaAutosize
                                 {...field}
-                                disabled={isBusy}
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
                                 minRows={2}
@@ -107,6 +107,7 @@ export const ProjectForm = () => {
                                 className="pt-4 resize-none border-none w-full outline-none bg-transparent"
                                 placeholder="What do you want to build?"
                                 onKeyDown={(e) => {
+                                    if (isBusy) return;
                                     if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
                                         e.preventDefault();
                                         form.handleSubmit(onSubmit)(e);
@@ -155,21 +156,14 @@ export const ProjectForm = () => {
                                     type="submit"
                                     disabled={isButtonDisabled}
                                     className={cn(
-                                        "size-8 rounded-full transition-all",
-                                        isBusy
-                                            ? "bg-destructive/90 text-white shadow-lg shadow-destructive/30 hover:bg-destructive disabled:opacity-90"
-                                            : "bg-foreground text-background shadow-lg shadow-black/10 hover:bg-foreground/90",
+                                        "size-8 rounded-full bg-foreground text-background shadow-lg shadow-black/10 transition-all hover:bg-foreground/90",
                                         isButtonDisabled && "cursor-not-allowed opacity-50",
                                     )}
-                                    aria-label={isBusy ? "Stop current run" : "Send launch prompt"}
+                                    aria-label="Send launch prompt"
                                     title={isBusy ? "The agent is working. Please wait for it to finish before sending another request." : "Send launch prompt"}
                                 >
                                     {isBusy ? (
-                                        isPending ? (
-                                            <Loader2Icon className="size-4 animate-spin" />
-                                        ) : (
-                                            <CircleStopIcon className="size-4" />
-                                        )
+                                        <Loader2Icon className="size-4 animate-spin" />
                                     ) : (
                                         <ArrowUpIcon className="size-4" />
                                     )}
