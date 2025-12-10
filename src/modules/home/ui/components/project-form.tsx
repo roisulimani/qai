@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowUpIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, SquareIcon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
@@ -159,7 +159,7 @@ export const ProjectForm = () => {
                                     )}
                                 >
                                     {isPending ? (
-                                        <Loader2Icon className="size-4 animate-spin" />
+                                        <SquareIcon className="size-4" />
                                     ) : (
                                         <ArrowUpIcon className="size-4" />
                                     )}

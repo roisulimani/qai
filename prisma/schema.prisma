@@ -20,6 +20,7 @@ model Project {
   isFavorite          Boolean         @default(false)
   companyId           String
   conversationSummary String?
+  agentRunCancelledAt DateTime?
   agentActions        AgentAction[]
   messages            Message[]
   company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)

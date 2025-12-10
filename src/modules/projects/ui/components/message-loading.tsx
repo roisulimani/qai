@@ -1,34 +1,18 @@
 import Image from "next/image";
-import { useMemo } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/trpc/client";
 import type { AgentAction, AgentActionStatus } from "@/generated/prisma";
 
 interface MessageLoadingProps {
-    projectId: string;
+    actions: AgentAction[];
 }
 
-export const MessageLoading = ({ projectId }: MessageLoadingProps) => {
-    const trpc = useTRPC();
-    const { data } = useSuspenseQuery(
-        trpc.projects.getAgentActions.queryOptions(
-            { projectId },
-            {
-                refetchInterval: 1000,
-            },
-        ),
-    );
-
-    const orderedActions = useMemo(() => {
-        const actions = data.actions ?? [];
-        const inProgress = actions.filter((action) => action.status === "IN_PROGRESS");
-        const failed = actions.filter((action) => action.status === "FAILED");
-        const completed = actions.filter((action) => action.status === "COMPLETED");
-        return [...inProgress, ...failed, ...completed];
-    }, [data.actions]);
+export const MessageLoading = ({ actions }: MessageLoadingProps) => {
+    const inProgress = actions.filter((action) => action.status === "IN_PROGRESS");
+    const failed = actions.filter((action) => action.status === "FAILED");
+    const completed = actions.filter((action) => action.status === "COMPLETED");
+    const orderedActions = [...inProgress, ...failed, ...completed];
 
     return (
         <div className="flex flex-col group px-2 pb-4">

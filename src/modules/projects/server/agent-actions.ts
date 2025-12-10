@@ -2,6 +2,12 @@ import { prisma } from "@/lib/db";
 import type { Prisma, AgentActionKey } from "@/generated/prisma";
 import { AgentActionStatus } from "@/generated/prisma";
 
+export class AgentCancelledError extends Error {
+  constructor() {
+    super("Agent run was cancelled");
+  }
+}
+
 type StepLike = {
   run<T>(name: string, handler: () => Promise<T>): Promise<T>;
 };
@@ -60,6 +66,17 @@ export async function resetAgentActions(projectId: string) {
   await prisma.agentAction.deleteMany({ where: { projectId } });
 }
 
+async function throwIfCancelled(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { agentRunCancelledAt: true },
+  });
+
+  if (project?.agentRunCancelledAt) {
+    throw new AgentCancelledError();
+  }
+}
+
 export async function runTrackedAgentAction<T>({
   step,
   projectId,
@@ -73,6 +90,8 @@ export async function runTrackedAgentAction<T>({
   const stepName = STEP_NAMES[key] ?? key.toLowerCase();
 
   const execute = async () => {
+    await throwIfCancelled(projectId);
+
     const action = await prisma.agentAction.create({
       data: {
         projectId,
@@ -84,6 +103,7 @@ export async function runTrackedAgentAction<T>({
     });
 
     try {
+      await throwIfCancelled(projectId);
       const result = await handler();
       const completionUpdate = await resolveUpdate(onComplete, result);
       await prisma.agentAction.update({
@@ -102,6 +122,7 @@ export async function runTrackedAgentAction<T>({
       return result;
     } catch (error) {
       const errorUpdate = await resolveUpdate(onError, error);
+      const isCancelled = error instanceof AgentCancelledError;
       await prisma.agentAction.update({
         where: { id: action.id },
         data: {
@@ -110,7 +131,9 @@ export async function runTrackedAgentAction<T>({
           detail:
             errorUpdate?.detail !== undefined
               ? errorUpdate.detail
-              : getErrorDetail(error),
+              : isCancelled
+                ? "Cancelled by user"
+                : getErrorDetail(error),
           ...(errorUpdate?.metadata !== undefined
             ? { metadata: errorUpdate.metadata }
             : {}),

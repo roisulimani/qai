@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowUpIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
@@ -16,6 +16,8 @@ import { ModelSelect } from "@/modules/models/ui/model-select";
 
 interface Props {
     projectId: string;
+    isAgentBusy?: boolean;
+    onCancelAgentRun?: () => Promise<unknown>;
 };
 
 const formSchema = z.object({
@@ -25,7 +27,7 @@ const formSchema = z.object({
     model: z.enum(MODEL_IDS),
 });
 
-export const MessageForm = ({ projectId }: Props) => {
+export const MessageForm = ({ projectId, isAgentBusy = false, onCancelAgentRun }: Props) => {
 
     const trpc = useTRPC();
     const queryClient = useQueryClient();
@@ -66,9 +68,25 @@ export const MessageForm = ({ projectId }: Props) => {
     };
 
     const [isFocused, setIsFocused] = useState(false);
+    const [cancelDisabled, setCancelDisabled] = useState(false);
+    const canCancel = Boolean(onCancelAgentRun);
     const showUsage = false;
     const isPending = createMessage.isPending;
-    const isButtonDisabled = isPending || !form.formState.isValid;
+    const shouldBlockInput = isPending || isAgentBusy;
+    const isButtonDisabled = isAgentBusy
+        ? cancelDisabled || !canCancel
+        : shouldBlockInput || !form.formState.isValid;
+
+    const handleCancel = async () => {
+        if (!onCancelAgentRun || cancelDisabled) return;
+
+        try {
+            setCancelDisabled(true);
+            await onCancelAgentRun();
+        } finally {
+            setCancelDisabled(false);
+        }
+    };
     
     return (
         <Form {...form}>
@@ -86,7 +104,7 @@ export const MessageForm = ({ projectId }: Props) => {
                     render={({ field }) => (
                         <TextareaAutosize
                             {...field}
-                            disabled={isPending}
+                            disabled={shouldBlockInput}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                             minRows={2}
@@ -94,7 +112,7 @@ export const MessageForm = ({ projectId }: Props) => {
                             className="pt-4 resize-none border-none w-full outline-none bg-transparent"
                             placeholder="What do you want to build?"
                             onKeyDown={(e) => {
-                                if (e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
+                                if (!shouldBlockInput && e.key === "Enter" && (!e.ctrlKey || !e.metaKey)) {
                                     e.preventDefault();
                                     form.handleSubmit(onSubmit)(e);
                                 }
@@ -116,7 +134,7 @@ export const MessageForm = ({ projectId }: Props) => {
                                         <ModelSelect
                                             value={field.value}
                                             onChange={field.onChange}
-                                            disabled={isPending}
+                                            disabled={shouldBlockInput}
                                             triggerClassName="w-[170px] sm:w-[180px]"
                                         />
                                     </FormControl>
@@ -133,14 +151,18 @@ export const MessageForm = ({ projectId }: Props) => {
                             <span className="ml-1">to send</span>
                         </div>
                         <Button
-                            type="submit"
+                            type={isAgentBusy ? "button" : "submit"}
                             disabled={isButtonDisabled}
+                            onClick={isAgentBusy ? handleCancel : undefined}
                             className={cn(
                                 "size-8 rounded-full",
                                 isButtonDisabled && "opacity-50 cursor-not-allowed",
                             )}
+                            aria-label={isAgentBusy ? "Stop agent run" : "Send message"}
                         >
-                            {isPending ? (
+                            {isAgentBusy ? (
+                                <SquareIcon className="size-4" />
+                            ) : isPending ? (
                                 <Loader2Icon className="size-4 animate-spin" />
                             ) : (
                                 <ArrowUpIcon className="size-4" />

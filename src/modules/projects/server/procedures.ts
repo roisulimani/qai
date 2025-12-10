@@ -3,6 +3,7 @@ import { startOfMonth } from "date-fns";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { AgentActionStatus } from "@/generated/prisma";
 import { recordProjectCreationSpend } from "@/modules/companies/server/credits";
 import { companyProcedure, createTRPCRouter } from "@/trpc/init";
 import { inngest } from '@/inngest/client';
@@ -126,6 +127,45 @@ export const projectsRouter = createTRPCRouter({
         });
 
         return { actions };
+    }),
+
+    cancelAgentRun: companyProcedure
+    .input(
+        z.object({
+            projectId: z.string().min(1, { message: "Project ID is required" }),
+        }),
+    )
+    .mutation(async ({ input, ctx }) => {
+        const project = await prisma.project.findUnique({
+            where: { id: input.projectId },
+            select: { companyId: true },
+        });
+
+        if (!project || project.companyId !== ctx.company.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
+        }
+
+        const cancelledAt = new Date();
+
+        await prisma.$transaction([
+            prisma.project.update({
+                where: { id: input.projectId },
+                data: { agentRunCancelledAt: cancelledAt },
+            }),
+            prisma.agentAction.updateMany({
+                where: {
+                    projectId: input.projectId,
+                    status: AgentActionStatus.IN_PROGRESS,
+                },
+                data: {
+                    status: AgentActionStatus.FAILED,
+                    detail: "Cancelled by user",
+                    completedAt: cancelledAt,
+                },
+            }),
+        ]);
+
+        return { cancelledAt };
     }),
 
     create: companyProcedure

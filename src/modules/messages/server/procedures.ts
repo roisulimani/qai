@@ -58,6 +58,10 @@ export const messagesRouter = createTRPCRouter({
         if (!project || project.companyId !== ctx.company.id) {
             throw new TRPCError({ code: "FORBIDDEN", message: "Project not found" });
         }
+        await prisma.project.update({
+            where: { id: input.projectId },
+            data: { agentRunCancelledAt: null },
+        });
         const newMessage = await prisma.message.create({
             data: {
                 projectId: input.projectId,
