@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowUpIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, CircleStopIcon, Loader2Icon } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
@@ -16,6 +16,7 @@ import { ModelSelect } from "@/modules/models/ui/model-select";
 
 interface Props {
     projectId: string;
+    isAgentWorking?: boolean;
 };
 
 const formSchema = z.object({
@@ -25,7 +26,7 @@ const formSchema = z.object({
     model: z.enum(MODEL_IDS),
 });
 
-export const MessageForm = ({ projectId }: Props) => {
+export const MessageForm = ({ projectId, isAgentWorking = false }: Props) => {
 
     const trpc = useTRPC();
     const queryClient = useQueryClient();
@@ -68,7 +69,8 @@ export const MessageForm = ({ projectId }: Props) => {
     const [isFocused, setIsFocused] = useState(false);
     const showUsage = false;
     const isPending = createMessage.isPending;
-    const isButtonDisabled = isPending || !form.formState.isValid;
+    const isBusy = isPending || isAgentWorking;
+    const isButtonDisabled = isBusy || !form.formState.isValid;
     
     return (
         <Form {...form}>
@@ -86,7 +88,7 @@ export const MessageForm = ({ projectId }: Props) => {
                     render={({ field }) => (
                         <TextareaAutosize
                             {...field}
-                            disabled={isPending}
+                            disabled={isBusy}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
                             minRows={2}
@@ -130,18 +132,27 @@ export const MessageForm = ({ projectId }: Props) => {
                             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                                 <span>&#8984;</span>Enter
                             </kbd>
-                            <span className="ml-1">to send</span>
+                            <span className="ml-1">{isBusy ? "agent running" : "to send"}</span>
                         </div>
                         <Button
                             type="submit"
                             disabled={isButtonDisabled}
                             className={cn(
-                                "size-8 rounded-full",
+                                "size-8 rounded-full transition-all",
+                                isBusy
+                                    ? "bg-destructive/90 text-white shadow-lg shadow-destructive/30 hover:bg-destructive disabled:opacity-90"
+                                    : "bg-foreground text-background shadow-lg shadow-black/10 hover:bg-foreground/90",
                                 isButtonDisabled && "opacity-50 cursor-not-allowed",
                             )}
+                            aria-label={isBusy ? "Stop current run" : "Send message"}
+                            title={isBusy ? "The agent is working. You can stop and wait before sending another request." : "Send message"}
                         >
-                            {isPending ? (
-                                <Loader2Icon className="size-4 animate-spin" />
+                            {isBusy ? (
+                                isPending ? (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                ) : (
+                                    <CircleStopIcon className="size-4" />
+                                )
                             ) : (
                                 <ArrowUpIcon className="size-4" />
                             )}

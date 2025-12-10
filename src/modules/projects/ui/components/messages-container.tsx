@@ -74,7 +74,10 @@ export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment
             <div className="relative px-3 pb-3 pt-2">
                 <div className="pointer-events-none absolute -top-6 left-0 right-0 h-6 bg-gradient-to-b from-transparent to-background" />
                 <div className="flex flex-col gap-3">
-                    <MessageForm projectId={projectId} />
+                    <MessageForm
+                        projectId={projectId}
+                        isAgentWorking={isLastMessageUserMessage}
+                    />
                     <div className="border-t border-border/60 pt-2">
                         <CreditBalanceIndicator variant="inline" />
                     </div>

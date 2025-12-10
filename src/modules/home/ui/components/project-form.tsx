@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowUpIcon, Loader2Icon } from "lucide-react";
+import { ArrowUpIcon, CircleStopIcon, Loader2Icon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
@@ -76,11 +76,12 @@ export const ProjectForm = () => {
 
     const [isFocused, setIsFocused] = useState(false);
     const isPending = createProject.isPending;
+    const isBusy = isPending;
     const creditBalance = company?.creditBalance;
     const isCreditBalanceKnown = typeof creditBalance === "number";
     const hasCredits = isCreditBalanceKnown ? creditBalance > 0 : true;
     const shouldShowOutOfCredits = !isCompanyLoading && isCreditBalanceKnown && !hasCredits;
-    const isButtonDisabled = isPending || !form.formState.isValid || !hasCredits;
+    const isButtonDisabled = isBusy || !form.formState.isValid || !hasCredits;
     
     return (
         <Form {...form}>
@@ -98,7 +99,7 @@ export const ProjectForm = () => {
                         render={({ field }) => (
                             <TextareaAutosize
                                 {...field}
-                                disabled={isPending}
+                                disabled={isBusy}
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => setIsFocused(false)}
                                 minRows={2}
@@ -148,18 +149,27 @@ export const ProjectForm = () => {
                                     <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                                         <span>&#8984;</span>Enter
                                     </kbd>
-                                    <span className="ml-1">to launch</span>
+                                    <span className="ml-1">{isBusy ? "agent running" : "to launch"}</span>
                                 </div>
                                 <Button
                                     type="submit"
                                     disabled={isButtonDisabled}
                                     className={cn(
-                                        "size-8 rounded-full",
+                                        "size-8 rounded-full transition-all",
+                                        isBusy
+                                            ? "bg-destructive/90 text-white shadow-lg shadow-destructive/30 hover:bg-destructive disabled:opacity-90"
+                                            : "bg-foreground text-background shadow-lg shadow-black/10 hover:bg-foreground/90",
                                         isButtonDisabled && "cursor-not-allowed opacity-50",
                                     )}
+                                    aria-label={isBusy ? "Stop current run" : "Send launch prompt"}
+                                    title={isBusy ? "The agent is working. Please wait for it to finish before sending another request." : "Send launch prompt"}
                                 >
-                                    {isPending ? (
-                                        <Loader2Icon className="size-4 animate-spin" />
+                                    {isBusy ? (
+                                        isPending ? (
+                                            <Loader2Icon className="size-4 animate-spin" />
+                                        ) : (
+                                            <CircleStopIcon className="size-4" />
+                                        )
                                     ) : (
                                         <ArrowUpIcon className="size-4" />
                                     )}
